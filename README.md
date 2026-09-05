@@ -34,7 +34,7 @@ Qo'shimcha:
 
 ## 🛠 Texnologiyalar
 
-- **React 18** — butun ilova bitta komponent faylida: [`src/MaqsadQoyish.jsx`](src/MaqsadQoyish.jsx)
+- **React 18** — butun ilova bitta komponent faylida: [`app/src/MaqsadQoyish.jsx`](app/src/MaqsadQoyish.jsx)
 - **Tailwind CSS 3** — minimalistik premium SaaS uslubi (slate / indigo / violet)
 - **lucide-react** — piktogrammalar
 - **html2pdf.js** + **html2canvas** — PDF va PNG eksport
@@ -61,30 +61,41 @@ Cloudflare Pages, oddiy nginx) qo'yish mumkin. `vite.config.js` da
 `base: './'` turgani uchun sayt ham domen ildizida, ham pastki papkada
 (`/maqsadqoy/`) bir xil ishlaydi.
 
+### 📁 Nega qurilgan fayllar repozitoriyada turadi
+
+Repozitoriya **root'i qurilgan saytga ajratilgan** (`index.html` + `assets/`),
+manba kod esa `app/` papkasida. Sabab: GitHub Pages'ning eng ko'p ishlatiladigan
+«Deploy from a branch → /(root)» rejimi branch root'idagi fayllarni qanday
+bo'lsa shundayligicha tarqatadi. Root'da tayyor sayt turgani uchun **hech
+qanday qo'shimcha sozlama talab qilinmaydi**.
+
+`npm run build` ikki ishni bajaradi:
+
+1. `vite build` → `dist/`
+2. `node scripts/publish-root.mjs` → `dist/` ni root'ga ko'chiradi
+   (eski `assets/` avval tozalanadi, shuning uchun hash'li fayllar to'planmaydi)
+
+Faqat `dist/` kerak bo'lsa: `npm run build:only`.
+
 ### 🌐 Internetga chiqarish (GitHub Pages)
 
 Repozitoriyda tayyor workflow bor: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
 U har bir push'da saytni quradi va **ikki yo'l bilan** joylashtiradi, shuning
 uchun Pages sozlamasining ikkala rejimi ham ishlaydi.
 
-**A-variant (tavsiya etiladi):** Settings → Pages → **Source: `GitHub Actions`**
+Sayt Pages sozlamasining **uchala rejimida ham** ochiladi:
 
-**B-variant:** Settings → Pages → **Source: `Deploy from a branch`** →
-Branch: **`gh-pages`** → **`/(root)`**
+| Source | Branch / papka | Nima tarqatiladi |
+|---|---|---|
+| `Deploy from a branch` | **manba branchi** → `/(root)` | Root'dagi qurilgan sayt ✓ |
+| `Deploy from a branch` | `gh-pages` → `/(root)` | Workflow push qilgan build ✓ |
+| `GitHub Actions` | — | Workflow yuklagan artefakt ✓ |
 
 Sayt manzili:
 
 ```
 https://<foydalanuvchi-nomi>.github.io/maqsadqoy/
 ```
-
-> ⚠️ **Eng keng tarqalgan xato — oq ekran.** Agar «Deploy from a branch»
-> rejimida branch sifatida **manba branchi** (`main` yoki `claude/...`)
-> tanlangan bo'lsa, GitHub Jekyll orqali repozitoriyning **xom kodini**
-> tarqatadi. Xom `index.html` esa `src/main.jsx` ni yuklaydi — brauzer
-> JSX'ni ishga tushira olmaydi va sahifa bo'sh qoladi.
-> Yechim: branchni **`gh-pages`** ga o'zgartiring yoki Source'ni
-> **`GitHub Actions`** ga o'tkazing.
 
 Muqobil (eng tez yo'l): `npm run build` dan keyin `dist/` papkasini
 [app.netlify.com/drop](https://app.netlify.com/drop) sahifasiga
@@ -176,16 +187,20 @@ kiriting.
 ## 🗂 Loyiha tuzilishi
 
 ```
-├── index.html                 # Telegram SDK, Inter shrifti, meta teglar
-├── src/
-│   ├── MaqsadQoyish.jsx       # butun ilova — yagona komponent fayli
-│   ├── main.jsx               # React kirish nuqtasi
-│   └── index.css              # Tailwind + slider, print (A4) uslublari
+├── app/                       # ── MANBA KOD ──
+│   ├── index.html             # Telegram SDK, Inter shrifti, meta teglar
+│   └── src/
+│       ├── MaqsadQoyish.jsx   # butun ilova — yagona komponent fayli
+│       ├── main.jsx           # React kirish nuqtasi
+│       └── index.css          # Tailwind + slider, print (A4) uslublari
+├── index.html                 # ── QURILGAN SAYT (build natijasi) ──
+├── assets/                    #    js + css, hash'li nomlar bilan
+├── scripts/publish-root.mjs   # dist/ → root ko'chiruvchi skript
 ├── tailwind.config.js         # ranglar, soyalar, mikro-animatsiyalar
-└── vite.config.js
+└── vite.config.js             # root: 'app', base: './'
 ```
 
-`MaqsadQoyish.jsx` ichidagi bo'limlar tartibi:
+`app/src/MaqsadQoyish.jsx` ichidagi bo'limlar tartibi:
 
 1. Konstantalar (sohalar, qadriyatlar, iqtiboslar, maslahatlar)
 2. Yordamchi funksiyalar va `localStorage` bilan ishlash

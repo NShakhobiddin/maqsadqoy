@@ -6,8 +6,9 @@
   "description": "Maqsad qo'yish — Dilshod Mannopovning 'Ustoz-shogird' metodologiyasidagi 4 bosqichli maqsad filtri",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "vite build && node scripts/publish-root.mjs",
+    "preview": "vite preview",
+    "build:only": "vite build"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

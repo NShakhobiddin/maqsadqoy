@@ -1,14 +1,13 @@
 # Saytni qurib, GitHub Pages'ga joylashtiradi.
 #
-# Sayt ikki xil sozlamada ham ishlaydi:
+# Sayt Pages sozlamasining uchala rejimida ham ochiladi:
 #
-#   A) Settings → Pages → Source: "GitHub Actions"   (tavsiya etiladi)
-#   B) Settings → Pages → Source: "Deploy from a branch"
-#      → Branch: gh-pages  /(root)
-#
-# DIQQAT: branch sifatida gh-pages EMAS, balki manba branchini tanlash
-# oq ekranga olib keladi — Jekyll xom kodni (src/main.jsx) tarqatadi va
-# brauzer JSX ni ishga tushira olmaydi.
+#   A) "Deploy from a branch" → manba branchi /(root)
+#      Repozitoriya root'ida qurilgan sayt (index.html + assets/) turadi.
+#   B) "Deploy from a branch" → gh-pages /(root)
+#      Quyidagi qadam har push'da shu branchni yangilaydi.
+#   C) "GitHub Actions"
+#      Artefakt yuklanadi va deploy-pages orqali tarqatiladi.
 #
 # Sayt manzili: https://<foydalanuvchi>.github.io/maqsadqoy/
 name: Deploy
