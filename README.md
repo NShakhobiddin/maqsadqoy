@@ -64,15 +64,27 @@ Cloudflare Pages, oddiy nginx) qo'yish mumkin. `vite.config.js` da
 ### 🌐 Internetga chiqarish (GitHub Pages)
 
 Repozitoriyda tayyor workflow bor: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
-Uni ishga tushirish uchun **bir marta** sozlash kerak:
+U har bir push'da saytni quradi va **ikki yo'l bilan** joylashtiradi, shuning
+uchun Pages sozlamasining ikkala rejimi ham ishlaydi.
 
-1. GitHub'da repozitoriyni oching → **Settings** → **Pages**
-2. **Build and deployment** → **Source**: `GitHub Actions` ni tanlang
-3. Tayyor. Har bir push'dan keyin sayt avtomatik yangilanadi:
+**A-variant (tavsiya etiladi):** Settings → Pages → **Source: `GitHub Actions`**
+
+**B-variant:** Settings → Pages → **Source: `Deploy from a branch`** →
+Branch: **`gh-pages`** → **`/(root)`**
+
+Sayt manzili:
 
 ```
 https://<foydalanuvchi-nomi>.github.io/maqsadqoy/
 ```
+
+> ⚠️ **Eng keng tarqalgan xato — oq ekran.** Agar «Deploy from a branch»
+> rejimida branch sifatida **manba branchi** (`main` yoki `claude/...`)
+> tanlangan bo'lsa, GitHub Jekyll orqali repozitoriyning **xom kodini**
+> tarqatadi. Xom `index.html` esa `src/main.jsx` ni yuklaydi — brauzer
+> JSX'ni ishga tushira olmaydi va sahifa bo'sh qoladi.
+> Yechim: branchni **`gh-pages`** ga o'zgartiring yoki Source'ni
+> **`GitHub Actions`** ga o'tkazing.
 
 Muqobil (eng tez yo'l): `npm run build` dan keyin `dist/` papkasini
 [app.netlify.com/drop](https://app.netlify.com/drop) sahifasiga

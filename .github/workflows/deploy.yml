@@ -1,9 +1,16 @@
 # Saytni qurib, GitHub Pages'ga joylashtiradi.
 #
-# Bir marta yoqish kerak:
-#   Repository → Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# Sayt ikki xil sozlamada ham ishlaydi:
 #
-# Shundan keyin sayt manzili: https://<foydalanuvchi>.github.io/maqsadqoy/
+#   A) Settings → Pages → Source: "GitHub Actions"   (tavsiya etiladi)
+#   B) Settings → Pages → Source: "Deploy from a branch"
+#      → Branch: gh-pages  /(root)
+#
+# DIQQAT: branch sifatida gh-pages EMAS, balki manba branchini tanlash
+# oq ekranga olib keladi — Jekyll xom kodni (src/main.jsx) tarqatadi va
+# brauzer JSX ni ishga tushira olmaydi.
+#
+# Sayt manzili: https://<foydalanuvchi>.github.io/maqsadqoy/
 name: Deploy
 
 on:
@@ -12,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # gh-pages branchiga yozish uchun
   pages: write
   id-token: write
 
@@ -34,17 +41,45 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      # Jekyll qurilgan fayllarga tegmasligi uchun
+      - run: touch dist/.nojekyll
+
+      # ---------------------------------------------------------------
+      # Zaxira yo'l: qurilgan saytni gh-pages branchiga ham joylaymiz.
+      # Shu tufayli Pages "Deploy from a branch" rejimida qolsa ham,
+      # branch sifatida gh-pages ni tanlash kifoya.
+      # ---------------------------------------------------------------
+      - name: Publish to gh-pages branch
+        run: |
+          cd dist
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Deploy $GITHUB_SHA"
+          git push -f "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Quyidagi qadamlar faqat Source: "GitHub Actions" bo'lganda ishlaydi.
+      # Aks holda ular xatoga uchraydi — bu normal, chunki sayt yuqoridagi
+      # gh-pages branchi orqali baribir joylashtirilgan.
       - uses: actions/configure-pages@v5
+        continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
+        continue-on-error: true
         with:
           path: dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
