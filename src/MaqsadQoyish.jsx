@@ -604,18 +604,17 @@ function Tugma({ children, onClick, variant = 'primary', Icon, disabled, classNa
 function Ogohlantirish({ xatolar, onClose }) {
   if (!xatolar || xatolar.length === 0) return null
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(var(--safe-bottom)+92px)] sm:pb-6">
-      <div className="pointer-events-auto w-full max-w-lg animate-slideDown rounded-2xl border border-rose-200 bg-white p-4 shadow-2xl">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600">
-            <AlertTriangle className="h-4 w-4" />
-          </span>
+    <div className="mx-auto w-full max-w-3xl px-4 pt-2.5 sm:px-6">
+      <div className="animate-slideDown rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2.5">
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle className="mt-[3px] h-4 w-4 shrink-0 text-rose-500" />
           <div className="min-w-0 flex-1">
-            <p className="text-[13.5px] font-bold text-slate-900">Bu bosqich hali to‘liq emas</p>
-            <ul className="mt-1.5 space-y-1">
+            <p className="text-[12.5px] font-bold text-rose-900">Bu bosqich hali to‘liq emas</p>
+            {/* Ro'yxat balandligi cheklangan — panel ekranni bosib qolmasligi uchun */}
+            <ul className="thin-scroll mt-1 max-h-[22vh] space-y-0.5 overflow-y-auto overscroll-contain pr-1">
               {xatolar.map((x, i) => (
-                <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-slate-600">
-                  <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-rose-400" />
+                <li key={i} className="flex gap-1.5 text-[12px] leading-snug text-rose-800/85">
+                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-rose-400" />
                   <span>{x}</span>
                 </li>
               ))}
@@ -625,7 +624,7 @@ function Ogohlantirish({ xatolar, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Yopish"
-            className="no-tap-highlight shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 active:scale-90"
+            className="no-tap-highlight -mr-1 shrink-0 rounded-lg p-1.5 text-rose-400 transition hover:bg-rose-100 active:scale-90"
           >
             <X className="h-4 w-4" />
           </button>
@@ -2388,6 +2387,105 @@ function telegramdaMi() {
   return /Telegram/i.test(navigator.userAgent || '')
 }
 
+/**
+ * Telegram (va oddiy mobil brauzer) uchun barqaror viewport.
+ *
+ * Muammolar va yechimlar:
+ *  • Mini App "compact" holatda ochiladi  → expand() va viewportChanged'da
+ *    qayta expand().
+ *  • 100dvh Telegram webview'da noto'g'ri  → balandlik --app-h o'zgaruvchisi
+ *    orqali visualViewport / viewportStableHeight dan olinadi.
+ *  • Klaviatura ochilganda sahifa sakraydi → faqat "resize" hodisasi
+ *    tinglanadi ("scroll" emas), shuning uchun skroll paytida jitter yo'q.
+ *  • iPhone "челка" va pastki chiziq     → Telegram safeAreaInset,
+ *    bo'lmasa CSS env() qiymatlari.
+ */
+function useTelegramViewport() {
+  useEffect(() => {
+    const root = document.documentElement
+    let ramka = 0
+
+    const olchamniYangila = () => {
+      cancelAnimationFrame(ramka)
+      ramka = requestAnimationFrame(() => {
+        const tg = tgApp()
+        const vv = window.visualViewport
+        // Ustuvorlik: visualViewport (klaviaturani ham hisobga oladi) →
+        // Telegram barqaror balandligi → oddiy innerHeight
+        const nomzodlar = [vv?.height, tg?.viewportStableHeight, tg?.viewportHeight, window.innerHeight]
+        const h = nomzodlar.find((v) => typeof v === 'number' && v > 200)
+        if (h) root.style.setProperty('--app-h', `${Math.round(h)}px`)
+      })
+    }
+
+    const insetlarniYangila = () => {
+      const tg = tgApp()
+      if (!tg) return
+      const yuqori = (tg.safeAreaInset?.top || 0) + (tg.contentSafeAreaInset?.top || 0)
+      const past = (tg.safeAreaInset?.bottom || 0) + (tg.contentSafeAreaInset?.bottom || 0)
+      // Faqat Telegram haqiqiy qiymat bergandagina CSS env() ni almashtiramiz
+      if (yuqori > 0) root.style.setProperty('--safe-top', `${yuqori}px`)
+      if (past > 0) root.style.setProperty('--safe-bottom', `${past}px`)
+    }
+
+    const kengaytir = () => {
+      const tg = tgApp()
+      if (!tg) return
+      try {
+        if (!tg.isExpanded) tg.expand()
+      } catch {
+        /* eski Telegram versiyasi */
+      }
+    }
+
+    const viewportOzgardi = () => {
+      kengaytir()
+      olchamniYangila()
+      insetlarniYangila()
+    }
+
+    olchamniYangila()
+    insetlarniYangila()
+
+    // DIQQAT: visualViewport'ning "scroll" hodisasi tinglanmaydi —
+    // aynan u iOS'da skroll paytida balandlikni tebratib yuboradi.
+    window.visualViewport?.addEventListener('resize', olchamniYangila)
+    window.addEventListener('resize', olchamniYangila)
+    window.addEventListener('orientationchange', viewportOzgardi)
+
+    const tg = tgApp()
+    try {
+      tg?.onEvent?.('viewportChanged', viewportOzgardi)
+      tg?.onEvent?.('safeAreaChanged', insetlarniYangila)
+      tg?.onEvent?.('contentSafeAreaChanged', insetlarniYangila)
+    } catch {
+      /* hodisa qo'llab-quvvatlanmasa — e'tiborsiz */
+    }
+
+    // Telegram ba'zan birinchi kadrda noto'g'ri balandlik beradi
+    const kechikkan = [
+      setTimeout(viewportOzgardi, 120),
+      setTimeout(viewportOzgardi, 500),
+      setTimeout(viewportOzgardi, 1200),
+    ]
+
+    return () => {
+      cancelAnimationFrame(ramka)
+      kechikkan.forEach(clearTimeout)
+      window.visualViewport?.removeEventListener('resize', olchamniYangila)
+      window.removeEventListener('resize', olchamniYangila)
+      window.removeEventListener('orientationchange', viewportOzgardi)
+      try {
+        tg?.offEvent?.('viewportChanged', viewportOzgardi)
+        tg?.offEvent?.('safeAreaChanged', insetlarniYangila)
+        tg?.offEvent?.('contentSafeAreaChanged', insetlarniYangila)
+      } catch {
+        /* noop */
+      }
+    }
+  }, [])
+}
+
 /* ==========================================================================
  *  13. ASOSIY KOMPONENT
  * ========================================================================== */
@@ -2409,8 +2507,11 @@ export default function MaqsadQoyish() {
 
   const pdfRef = useRef(null)
   const blobRef = useRef('')
-  const yuqoriRef = useRef(null)
+  const skrollRef = useRef(null)
   const xabarTimer = useRef(null)
+
+  /* ---------- Telegram uchun barqaror viewport ---------- */
+  useTelegramViewport()
 
   /* ---------- Telegram sozlamalari ---------- */
   useEffect(() => {
@@ -2419,11 +2520,14 @@ export default function MaqsadQoyish() {
     if (!tg) return
     try {
       tg.ready()
+      // To'liq balandlikda ochilishi uchun (compact rejimdan chiqarish)
       tg.expand()
-      // Pastga tortganda ilova yopilib ketmasligi uchun (yangi versiyalarda mavjud)
+      // Pastga tortganda ilova yopilib ketmasligi uchun — asosiy "qimirlash"
+      // manbalaridan biri (yangi versiyalarda mavjud)
       tg.disableVerticalSwipes?.()
       tg.setHeaderColor?.('#ffffff')
       tg.setBackgroundColor?.('#f8fafc')
+      tg.setBottomBarColor?.('#ffffff')
     } catch {
       /* eski Telegram versiyalari — e'tiborsiz qoldiramiz */
     }
@@ -2508,11 +2612,12 @@ export default function MaqsadQoyish() {
   }, [])
 
   const yuqoriga = useCallback(() => {
+    const el = skrollRef.current
+    if (!el) return
     try {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      yuqoriRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      el.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
-      window.scrollTo(0, 0)
+      el.scrollTop = 0
     }
   }, [])
 
@@ -2816,9 +2921,9 @@ export default function MaqsadQoyish() {
 
   return (
     <>
-    <div className="app-shell min-h-[100dvh] bg-slate-50">
+    <div className="app-shell bg-slate-50">
       {/* Fon dekoratsiyasi */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-40 top-0 h-[420px] w-[420px] rounded-full bg-indigo-200/25 blur-[110px]" />
         <div className="absolute -right-40 top-1/3 h-[420px] w-[420px] rounded-full bg-violet-200/25 blur-[110px]" />
         <div className="absolute bottom-0 left-1/3 h-[380px] w-[380px] rounded-full bg-sky-200/20 blur-[110px]" />
@@ -2826,10 +2931,9 @@ export default function MaqsadQoyish() {
 
       <Xabar matn={xabar} />
 
-      <div
-        ref={yuqoriRef}
-        className="relative mx-auto w-full max-w-3xl px-4 pt-[calc(var(--safe-top)+18px)] sm:px-6 sm:pt-8"
-      >
+      {/* ---- Skroll qilinadigan yagona hudud ---- */}
+      <div ref={skrollRef} className="app-scroll thin-scroll relative">
+      <div className="mx-auto w-full max-w-3xl px-4 pt-[calc(var(--safe-top)+18px)] sm:px-6 sm:pt-8">
         <Header umumiyFoiz={umumiyFoiz} saqlanganVaqt={saqlanganVaqt} />
 
         {/* Stepper */}
@@ -2866,10 +2970,7 @@ export default function MaqsadQoyish() {
         ) : null}
 
         {/* Kontent */}
-        <main
-          key={bosqich}
-          className="mt-5 animate-fadeUp pb-[calc(var(--safe-bottom)+108px)] sm:mt-6 sm:pb-[calc(var(--safe-bottom)+112px)]"
-        >
+        <main key={bosqich} className="mt-5 animate-fadeUp sm:mt-6">
           {bosqich === 1 ? <Qadam1 d={data.qadam1} set={set1} /> : null}
           {bosqich === 2 ? <Qadam2 d={data.qadam2} set={set2} /> : null}
           {bosqich === 3 ? <Qadam3 d={data.qadam3} set={set3} /> : null}
@@ -2889,11 +2990,27 @@ export default function MaqsadQoyish() {
             />
           ) : null}
         </main>
-      </div>
 
-      {/* Pastki navigatsiya paneli */}
+        {/* Pastki matn */}
+        <footer className="no-print pb-[calc(var(--safe-bottom)+20px)] pt-8 text-center">
+          <p className="text-[11.5px] leading-relaxed text-slate-400">
+            «Ustoz-shogird» metodologiyasi asosida · Ma’lumotlar faqat shu qurilmada saqlanadi
+          </p>
+        </footer>
+      </div>
+      </div>
+      {/* ---- Skroll hududi tugadi ---- */}
+
+      {/*
+        Pastki navigatsiya — position:fixed EMAS, balki qobiqning oxirgi
+        flex elementi. Aynan shu tufayli u klaviatura ochilganda yoki
+        skroll paytida sakramaydi.
+      */}
       {!pasportda ? (
-        <div className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/85 backdrop-blur-xl">
+        <div className="no-print shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur-xl">
+          {/* Validatsiya ogohlantirishi — tugmalar ustida, siljishlarsiz */}
+          <Ogohlantirish xatolar={xatolar} onClose={() => setXatolar([])} />
+
           <div className="mx-auto flex w-full max-w-3xl items-center gap-2.5 px-4 pb-[calc(var(--safe-bottom)+12px)] pt-3 sm:px-6">
             <Tugma
               variant="ghost"
@@ -2928,13 +3045,10 @@ export default function MaqsadQoyish() {
         </div>
       ) : null}
 
-      {/* Ogohlantirishlar */}
-      <Ogohlantirish xatolar={xatolar} onClose={() => setXatolar([])} />
-
       {/* PNG modal (Telegramda saqlash uchun) */}
       {rasmOyna && pngUrl ? (
         <div className="no-print fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="flex max-h-[94dvh] w-full max-w-lg animate-slideDown flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+          <div className="flex max-h-[calc(var(--app-h,100dvh)-24px)] w-full max-w-lg animate-slideDown flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
             <div className="flex items-center justify-between border-b border-slate-100 p-4">
               <div className="min-w-0">
                 <p className="text-[14px] font-bold text-slate-900">Pasport rasmi tayyor</p>
@@ -3014,12 +3128,6 @@ export default function MaqsadQoyish() {
         </div>
       ) : null}
 
-      {/* Pastki matn */}
-      <footer className="no-print relative mx-auto w-full max-w-3xl px-4 pb-[calc(var(--safe-bottom)+120px)] text-center sm:px-6 sm:pb-[calc(var(--safe-bottom)+120px)]">
-        <p className="text-[11.5px] leading-relaxed text-slate-400">
-          «Ustoz-shogird» metodologiyasi asosida · Ma’lumotlar faqat shu qurilmada saqlanadi
-        </p>
-      </footer>
     </div>
 
     {/*

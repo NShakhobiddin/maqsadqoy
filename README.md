@@ -88,12 +88,40 @@ sudrab tashlang — bir necha soniyada tayyor HTTPS manzil beradi.
 Dastur Telegram'ning ichki brauzerida ishlashga alohida moslashtirilgan:
 
 - `telegram-web-app.js` SDK ulangan — Telegram tashqarisida ham xatosiz ishlaydi.
-- `expand()` bilan to'liq balandlik, `disableVerticalSwipes()` bilan pastga
-  tortganda ilova yopilib ketmaydi.
+- **To'liq ochilish**: `expand()` ishga tushishda va har bir `viewportChanged`
+  hodisasida chaqiriladi — ilova hech qachon «compact» holatda qolib ketmaydi.
 - Telegram'ning **BackButton** tugmasi bosqichlar bo'ylab orqaga qaytaradi.
 - **HapticFeedback** — tugmalar bosilganda tebranish.
-- Input'lar 16px shriftda — iOS'da avtomatik zoom bo'lmaydi.
-- `safe-area-inset` hisobga olingan (iPhone «челка» va pastki chiziq).
+- Input'lar 16px shriftda + `user-scalable=no` — iOS'da avtomatik zoom yo'q.
+- **Safe-area**: Telegram `safeAreaInset` / `contentSafeAreaInset` qiymatlari,
+  ular bo'lmasa CSS `env(safe-area-inset-*)` (iPhone «челка» va pastki chiziq).
+
+### 🧱 Barqarorlik: nega interfeys «qimirlamaydi»
+
+Telegram webview'da sahifalar odatda uch sababdan sakraydi: hujjat darajasidagi
+skroll + iOS rubber-band, `position: fixed` pastki panel, va klaviatura
+ochilganda viewport o'zgarishi. Uchalasi ham quyidagicha yopilgan:
+
+| Muammo | Yechim |
+|---|---|
+| iOS rubber-band, pastga tortganda ilova yopilishi | `html, body { overflow: hidden; overscroll-behavior: none }` + `disableVerticalSwipes()` |
+| Skroll/klaviaturada pastki panel sakrashi | Panel **`position: fixed` emas** — u `.app-shell` flex ustunining oxirgi elementi |
+| `100dvh` Telegram'da noto'g'ri | Balandlik `--app-h` o'zgaruvchisidan: `visualViewport.height` → `viewportStableHeight` → `innerHeight` |
+| Skroll paytida balandlik tebranishi | `visualViewport`ning faqat **`resize`** hodisasi tinglanadi, `scroll` emas; yangilanish `requestAnimationFrame` bilan |
+| Kontent sakrashi | Skroll faqat bitta `.app-scroll` konteynerida, `overscroll-behavior: contain` bilan |
+
+Natijada tuzilma quyidagicha:
+
+```
+.app-shell   (position: fixed, height: var(--app-h), flex column)
+├── .app-scroll   (flex: 1, yagona skroll hududi)
+│   └── header · stepper · bosqich kontenti · footer
+└── pastki panel  (shrink-0 — oqimda, hech qachon sakramaydi)
+```
+
+O'lchangan natija (Telegram simulyatsiyasi, iPhone 13): hujjat skrolli **0px**,
+pastki panel 1200px skrolldan keyin ham **0px siljiydi**, input fokusida ham
+**0px siljish**.
 
 ### Saqlash va yuborish
 
