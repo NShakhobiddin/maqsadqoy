@@ -1,0 +1,133 @@
+# 🎯 Maqsad qo'yish
+
+> Yurakni jizillatadigan buyuk maqsadlar sari **4 qadam**
+
+Dilshod Mannopovning **«Ustoz-shogird»** metodologiyasidagi 4 bosqichli maqsad
+filtri asosida qurilgan interaktiv veb-dastur. Foydalanuvchi 4 ta bosqichdan
+o'tib, yakunda **«Strategik maqsad pasporti»**ni oladi va uni PDF / PNG
+ko'rinishida yuklab olishi mumkin.
+
+---
+
+## ✨ Imkoniyatlar
+
+| | |
+|---|---|
+| 🔥 **1-qadam** | Yurakni jizillatuvchi maqsadni tanlash — soha chiplari, maqsad matni, 1–10 his-tuyg'u o'lchagichi (emoji slider), «nima uchun?» savoli |
+| ❤️ **2-qadam** | Qadriyat va manfaat filtri — ko'p tanlovli qadriyat teglari (+ o'z variantini qo'shish), boshqalarga manfaat, tramplin effekti |
+| 🛡️ **3-qadam** | 10 ta qadam va straxovka — akkordeon kartalar, muddat (deadline), **Straxovka A** va **Straxovka B** zaxira rejalari |
+| 📏 **4-qadam** | O'lchov va aniq parametrlar — erishilganlik belgilari (checklist), KPI jadvali, qasamyod va imzo bloki |
+| 📄 **Pasport** | Barcha ma'lumotlar jamlangan vizual dashboard + PDF / PNG / chop etish / matn nusxalash |
+
+Qo'shimcha:
+
+- 💾 **Avtomatik saqlash** — barcha kiritilgan ma'lumot `localStorage`da saqlanadi,
+  sahifa yangilanganda yo'qolmaydi.
+- ✅ **Validatsiya** — bosqichni bo'sh qoldirib keyingisiga o'tib bo'lmaydi,
+  aniq ogohlantirishlar chiqadi.
+- 📊 **Progress stepper** — har bir bosqichning to'ldirilganlik foizi va holati
+  (tugallangan / faol / kutilmoqda).
+- 💡 **Ustoz maslahatlari** va har bosqichda ilhomlantiruvchi iqtiboslar.
+- 📱 **To'liq responsive** + **Telegram Mini App**ga moslashtirilgan.
+
+---
+
+## 🛠 Texnologiyalar
+
+- **React 18** — butun ilova bitta komponent faylida: [`src/MaqsadQoyish.jsx`](src/MaqsadQoyish.jsx)
+- **Tailwind CSS 3** — minimalistik premium SaaS uslubi (slate / indigo / violet)
+- **lucide-react** — piktogrammalar
+- **html2pdf.js** + **html2canvas** — PDF va PNG eksport
+- **Vite** — dev-server va build
+
+---
+
+## 🚀 Ishga tushirish
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
+
+Production build:
+
+```bash
+npm run build      # natija: dist/
+npm run preview    # build'ni lokal tekshirish
+```
+
+`dist/` papkasi statik — uni istalgan hostingga (Netlify, Vercel, GitHub Pages,
+Cloudflare Pages, oddiy nginx) qo'yish mumkin.
+
+---
+
+## 📱 Telegram Mini App / Telegram ichida ochish
+
+Dastur Telegram'ning ichki brauzerida ishlashga alohida moslashtirilgan:
+
+- `telegram-web-app.js` SDK ulangan — Telegram tashqarisida ham xatosiz ishlaydi.
+- `expand()` bilan to'liq balandlik, `disableVerticalSwipes()` bilan pastga
+  tortganda ilova yopilib ketmaydi.
+- Telegram'ning **BackButton** tugmasi bosqichlar bo'ylab orqaga qaytaradi.
+- **HapticFeedback** — tugmalar bosilganda tebranish.
+- Input'lar 16px shriftda — iOS'da avtomatik zoom bo'lmaydi.
+- `safe-area-inset` hisobga olingan (iPhone «челка» va pastki chiziq).
+
+**Eksport bo'yicha muhim eslatma.** Telegram'ning ichki brauzeri ba'zan
+fayl yuklashni bloklaydi, shuning uchun pasportni saqlashning **4 xil yo'li**
+berilgan:
+
+1. 📥 **PDF yuklab olish** — asosiy yo'l (A4, ko'p sahifali).
+2. 🖼 **Rasm (PNG) sifatida** — rasm oynada ochiladi, uni **bosib turib**
+   galereyaga saqlash mumkin. Telegram'da eng ishonchli usul.
+3. 🖨 **Chop etish** — brauzerning print oynasi (u yerdan ham «Save as PDF»).
+4. 📋 **Matnni nusxalash** — pasportni matn ko'rinishida clipboard'ga oladi,
+   darhol chatga tashlash mumkin.
+
+Agar PDF baribir yuklanmasa, PNG oynasidagi **«Brauzerda ochish»** tugmasi
+sahifani tizim brauzerida ochadi.
+
+Mini App sifatida ulash uchun **@BotFather** → `/newapp` → hosting URL'ini
+kiriting.
+
+---
+
+## 🗂 Loyiha tuzilishi
+
+```
+├── index.html                 # Telegram SDK, Inter shrifti, meta teglar
+├── src/
+│   ├── MaqsadQoyish.jsx       # butun ilova — yagona komponent fayli
+│   ├── main.jsx               # React kirish nuqtasi
+│   └── index.css              # Tailwind + slider, print (A4) uslublari
+├── tailwind.config.js         # ranglar, soyalar, mikro-animatsiyalar
+└── vite.config.js
+```
+
+`MaqsadQoyish.jsx` ichidagi bo'limlar tartibi:
+
+1. Konstantalar (sohalar, qadriyatlar, iqtiboslar, maslahatlar)
+2. Yordamchi funksiyalar va `localStorage` bilan ishlash
+3. Validatsiya va progress hisoblash
+4. Kichik UI komponentlari
+5. Header va progress stepper
+6. 1–4 qadam ekranlari
+7. «Strategik maqsad pasporti» dashboardi
+8. PDF/print uchun A4 hujjat shabloni
+9. Telegram integratsiyasi va asosiy komponent
+
+---
+
+## 🎨 Dizayn tamoyillari
+
+- Slate fon, indigo→violet gradient urg'u, nozik soyalar va `backdrop-blur`.
+- Mikro-animatsiyalar: `fadeUp`, `pop`, `slideDown`, `floaty`.
+- Barcha bosiladigan elementlar kamida 44–46px balandlikda (mobil uchun).
+- Butun interfeys **to'liq o'zbek tilida**.
+
+---
+
+## 🔒 Maxfiylik
+
+Hech qanday server yo'q. Barcha ma'lumot faqat foydalanuvchining
+brauzerida (`localStorage`) saqlanadi va hech qayerga yuborilmaydi.
