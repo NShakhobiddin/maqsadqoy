@@ -53,6 +53,7 @@ import {
   Rocket,
   Ruler,
   Save,
+  Send,
   Shield,
   ShieldCheck,
   Sparkles,
@@ -1625,7 +1626,18 @@ const bosh = (v, alt = 'To‘ldirilmagan') =>
     <span className="italic text-slate-400">{alt}</span>
   )
 
-function Pasport({ data, onEdit, onQayta, onPdf, onPng, onPrint, onCopy, yuklanmoqda, telegram }) {
+function Pasport({
+  data,
+  onEdit,
+  onQayta,
+  onPdf,
+  onPng,
+  onPrint,
+  onCopy,
+  onTelegram,
+  yuklanmoqda,
+  telegram,
+}) {
   const d1 = data.qadam1
   const d2 = data.qadam2
   const d3 = data.qadam3
@@ -1696,31 +1708,48 @@ function Pasport({ data, onEdit, onQayta, onPdf, onPng, onPrint, onCopy, yuklanm
           </Tugma>
           <Tugma
             variant="dark"
-            Icon={yuklanmoqda === 'png' ? Loader2 : ImageIcon}
+            Icon={yuklanmoqda === 'png' ? Loader2 : Send}
             spin={yuklanmoqda === 'png'}
-            onClick={onPng}
+            onClick={onTelegram}
             disabled={!!yuklanmoqda}
           >
-            {yuklanmoqda === 'png' ? 'Tayyorlanmoqda...' : 'Rasm (PNG) sifatida'}
+            {yuklanmoqda === 'png' ? 'Tayyorlanmoqda...' : 'Telegramga yuborish'}
+          </Tugma>
+          <Tugma variant="ghost" Icon={ImageIcon} onClick={onPng} disabled={!!yuklanmoqda}>
+            Rasm sifatida saqlash
           </Tugma>
           <Tugma variant="ghost" Icon={Printer} onClick={onPrint} disabled={!!yuklanmoqda}>
             Chop etish
           </Tugma>
-          <Tugma variant="ghost" Icon={Copy} onClick={onCopy} disabled={!!yuklanmoqda}>
+          <Tugma
+            variant="ghost"
+            Icon={Copy}
+            onClick={onCopy}
+            disabled={!!yuklanmoqda}
+            className="sm:col-span-2"
+          >
             Matnni nusxalash
           </Tugma>
         </div>
 
-        {telegram ? (
-          <p className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-50 p-3 text-[12.5px] leading-relaxed text-sky-900">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
-            <span>
-              Siz Telegram ichida ochgansiz. Agar PDF yuklanmasa —{' '}
-              <span className="font-bold">“Rasm (PNG) sifatida”</span> tugmasini bosing va rasmni bosib
-              turib saqlang, yoki sahifani tashqi brauzerda oching.
-            </span>
-          </p>
-        ) : null}
+        <p className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-50 p-3 text-[12.5px] leading-relaxed text-sky-900">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+          <span>
+            {telegram ? (
+              <>
+                Siz Telegram ichida ochgansiz. Telegram ba’zan PDF yuklashni bloklaydi — bunday holatda
+                pasport <span className="font-bold">avtomatik ravishda rasmga aylantiriladi</span>. Uni
+                galereyaga saqlash yoki to‘g‘ridan-to‘g‘ri chatga yuborish mumkin.
+              </>
+            ) : (
+              <>
+                <span className="font-bold">“Telegramga yuborish”</span> pasportni rasm qilib tayyorlaydi
+                va uni istalgan chatga jo‘natish imkonini beradi. PDF yuklanmagan taqdirda ham rasm
+                varianti doim ishlaydi.
+              </>
+            )}
+          </span>
+        </p>
       </div>
 
       {/* 1-bosqich */}
@@ -2328,6 +2357,20 @@ function matnGa(data) {
   return L.join('\n')
 }
 
+/** Telegram xabari uchun qisqartirilgan ulashish matni */
+function ulashMatni(data) {
+  const matn = matnGa(data)
+  // t.me/share/url ning "text" parametri uzun bo'lsa Telegram xabarni kesadi
+  return matn.length > 3000 ? `${matn.slice(0, 2980)}\n\n…(to'liq versiyasi PDF/rasmda)` : matn
+}
+
+/** data:URL dan ulashishga yaroqli File obyektini yasash */
+async function dataUrlDanFayl(dataUrl, nom) {
+  const javob = await fetch(dataUrl)
+  const blob = await javob.blob()
+  return { blob, fayl: new File([blob], nom, { type: 'image/png' }) }
+}
+
 /* ==========================================================================
  *  12. TELEGRAM MINI APP INTEGRATSIYASI
  * ========================================================================== */
@@ -2357,11 +2400,15 @@ export default function MaqsadQoyish() {
   const [xabar, setXabar] = useState('')
   const [saqlanganVaqt, setSaqlanganVaqt] = useState('')
   const [yuklanmoqda, setYuklanmoqda] = useState('')
-  const [pngUrl, setPngUrl] = useState('')
+  const [pngUrl, setPngUrl] = useState('')        // <img> uchun (data:URL — eng mos)
+  const [pngFayl, setPngFayl] = useState(null)   // Web Share uchun File
+  const [pngYuklabUrl, setPngYuklabUrl] = useState('') // <a download> uchun blob:URL
+  const [rasmOyna, setRasmOyna] = useState(false)
   const [qaytaSoraw, setQaytaSoraw] = useState(false)
   const [telegram, setTelegram] = useState(false)
 
   const pdfRef = useRef(null)
+  const blobRef = useRef('')
   const yuqoriRef = useRef(null)
   const xabarTimer = useRef(null)
 
@@ -2422,6 +2469,21 @@ export default function MaqsadQoyish() {
     }, 400)
     return () => clearTimeout(t)
   }, [data, bosqich])
+
+  /* ---------- Rasm keshi (ma'lumot o'zgarsa — eskiradi) ---------- */
+  const rasmniTozala = useCallback(() => {
+    if (blobRef.current) {
+      URL.revokeObjectURL(blobRef.current)
+      blobRef.current = ''
+    }
+    setPngUrl('')
+    setPngFayl(null)
+    setPngYuklabUrl('')
+  }, [])
+
+  useEffect(() => {
+    rasmniTozala()
+  }, [data, rasmniTozala])
 
   /* ---------- Ogohlantirish avtomatik yo'qoladi ---------- */
   useEffect(() => {
@@ -2559,31 +2621,61 @@ export default function MaqsadQoyish() {
         .save()
       xabarBer('PDF tayyor ✓')
       titra('medium')
+      setYuklanmoqda('')
     } catch (e) {
       console.error('PDF xatosi:', e)
-      xabarBer('PDF ishlamadi — chop etish oynasi ochildi')
-      setTimeout(() => window.print(), 350)
-    } finally {
       setYuklanmoqda('')
+      // PDF chiqmadi — avtomatik ravishda rasm ko'rinishiga o'tamiz
+      xabarBer('PDF ishlamadi — rasm tayyorlanmoqda...')
+      await pngYarat()
     }
   }
 
-  /* ---------- Eksport: PNG (Telegram uchun eng ishonchli) ---------- */
+  /* ------------------------------------------------------------------
+   *  Eksport: PNG rasm
+   *  Rasm keshlanadi: Web Share (navigator.share) faylni faqat
+   *  foydalanuvchi bosishi paytida qabul qiladi, shuning uchun rasm
+   *  oldindan tayyorlanib, ulashish alohida bosishda amalga oshiriladi.
+   * ------------------------------------------------------------------ */
+  const rasmTayyorla = useCallback(async () => {
+    if (pngUrl && pngFayl) return { url: pngUrl, fayl: pngFayl }
+    if (!pdfRef.current) throw new Error('Hujjat topilmadi')
+
+    const mod = await import('html2canvas')
+    const html2canvas = mod.default || mod
+    const canvas = await html2canvas(pdfRef.current, {
+      scale: window.devicePixelRatio > 1 ? 2 : 1.6,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      windowWidth: 794,
+      scrollX: 0,
+      scrollY: 0,
+    })
+
+    const url = canvas.toDataURL('image/png')
+    let fayl = null
+    let yuklabUrl = url
+    try {
+      const { blob, fayl: f } = await dataUrlDanFayl(url, `${faylNomi}.png`)
+      fayl = f
+      // blob:URL — data:URL ga qaraganda yuklab olish uchun ancha ishonchli
+      yuklabUrl = URL.createObjectURL(blob)
+      blobRef.current = yuklabUrl
+    } catch {
+      /* File API cheklangan bo'lsa — data:URL bilan davom etamiz */
+    }
+
+    setPngUrl(url)
+    setPngFayl(fayl)
+    setPngYuklabUrl(yuklabUrl)
+    return { url, fayl }
+  }, [pngUrl, pngFayl, faylNomi])
+
   const pngYarat = async () => {
-    if (!pdfRef.current) return
     setYuklanmoqda('png')
     try {
-      const mod = await import('html2canvas')
-      const html2canvas = mod.default || mod
-      const canvas = await html2canvas(pdfRef.current, {
-        scale: window.devicePixelRatio > 1 ? 2 : 1.6,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        windowWidth: 794,
-        scrollX: 0,
-        scrollY: 0,
-      })
-      setPngUrl(canvas.toDataURL('image/png'))
+      await rasmTayyorla()
+      setRasmOyna(true)
       titra('medium')
     } catch (e) {
       console.error('PNG xatosi:', e)
@@ -2619,6 +2711,94 @@ export default function MaqsadQoyish() {
       xabarBer('Nusxalash imkoni bo‘lmadi')
     }
   }
+
+  /* ------------------------------------------------------------------
+   *  Telegramga matn ko'rinishida yuborish (zaxira yo'l).
+   *  t.me/share/url barcha platformalarda ishlaydi va chat tanlash
+   *  oynasini ochadi.
+   * ------------------------------------------------------------------ */
+  const telegramgaMatn = useCallback(async () => {
+    const matn = ulashMatni(data)
+    const havola = `https://t.me/share/url?url=${encodeURIComponent(
+      window.location.href
+    )}&text=${encodeURIComponent(matn)}`
+
+    const tg = tgApp()
+    try {
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(havola)
+        return
+      }
+    } catch {
+      /* eski Telegram versiyasi — quyidagi zaxira yo'llar bilan davom etamiz */
+    }
+
+    const oyna = window.open(havola, '_blank', 'noopener')
+    if (oyna) return
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Strategik maqsad pasporti', text: matn })
+        return
+      } catch (e) {
+        if (e?.name === 'AbortError') return
+      }
+    }
+    await nusxala()
+    xabarBer('Matn nusxalandi — Telegramga qo‘ying')
+  }, [data, nusxala, xabarBer])
+
+  /* ------------------------------------------------------------------
+   *  Pasportni RASM sifatida Telegramga (yoki boshqa ilovaga) yuborish.
+   *  Rasm hali tayyor bo'lmasa — avval tayyorlab, oynani ochamiz:
+   *  Web Share faylni faqat "toza" bosish paytida qabul qiladi.
+   * ------------------------------------------------------------------ */
+  const rasmniUlash = async () => {
+    let fayl = pngFayl
+
+    if (!fayl) {
+      setYuklanmoqda('png')
+      try {
+        const natija = await rasmTayyorla()
+        fayl = natija.fayl
+        setRasmOyna(true)
+      } catch (e) {
+        console.error('Rasm xatosi:', e)
+        setYuklanmoqda('')
+        // Rasm chiqmadi — hech bo'lmaganda matnni yuboramiz
+        await telegramgaMatn()
+        return
+      }
+      setYuklanmoqda('')
+      if (fayl) {
+        xabarBer('Rasm tayyor — “Telegramga yuborish”ni bosing')
+        return
+      }
+    }
+
+    const yuk = {
+      files: [fayl],
+      title: 'Strategik maqsad pasporti',
+      text: data.qadam1.maqsad || 'Strategik maqsad pasporti',
+    }
+
+    if (navigator.canShare?.(yuk) && navigator.share) {
+      try {
+        await navigator.share(yuk)
+        titra('medium')
+        return
+      } catch (e) {
+        if (e?.name === 'AbortError') return
+        console.error('Ulashish xatosi:', e)
+      }
+    }
+
+    // Rasmni ulashib bo'lmadi — matn ko'rinishida yuboramiz
+    await telegramgaMatn()
+  }
+
+  /* ---------- Rasm oynasini yopish ---------- */
+  const rasmOynaniYop = () => setRasmOyna(false)
 
   /* ---------- Brauzerda ochish (Telegram) ---------- */
   const brauzerdaOch = () => {
@@ -2703,6 +2883,7 @@ export default function MaqsadQoyish() {
               onQayta={() => setQaytaSoraw(true)}
               onPdf={pdfYukla}
               onPng={pngYarat}
+              onTelegram={rasmniUlash}
               onPrint={() => window.print()}
               onCopy={nusxala}
             />
@@ -2751,19 +2932,20 @@ export default function MaqsadQoyish() {
       <Ogohlantirish xatolar={xatolar} onClose={() => setXatolar([])} />
 
       {/* PNG modal (Telegramda saqlash uchun) */}
-      {pngUrl ? (
+      {rasmOyna && pngUrl ? (
         <div className="no-print fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="flex max-h-[92dvh] w-full max-w-lg animate-slideDown flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+          <div className="flex max-h-[94dvh] w-full max-w-lg animate-slideDown flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
             <div className="flex items-center justify-between border-b border-slate-100 p-4">
               <div className="min-w-0">
                 <p className="text-[14px] font-bold text-slate-900">Pasport rasmi tayyor</p>
-                <p className="text-[12px] text-slate-500">
-                  Rasmni <span className="font-semibold">bosib turing</span> va “Saqlash”ni tanlang.
+                <p className="text-[12px] leading-relaxed text-slate-500">
+                  Chatga yuboring, yuklab oling yoki rasmni{' '}
+                  <span className="font-semibold">bosib turib</span> galereyaga saqlang.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setPngUrl('')}
+                onClick={rasmOynaniYop}
                 aria-label="Yopish"
                 className="no-tap-highlight shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 active:scale-90"
               >
@@ -2779,20 +2961,30 @@ export default function MaqsadQoyish() {
               />
             </div>
 
-            <div className="flex flex-col gap-2.5 border-t border-slate-100 p-4 pb-[calc(var(--safe-bottom)+16px)] sm:flex-row">
-              <a
-                href={pngUrl}
-                download={`${faylNomi}.png`}
-                className="no-tap-highlight inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-[14.5px] font-semibold text-white shadow-glow transition active:scale-[.97]"
-              >
-                <Download className="h-[18px] w-[18px]" />
-                Rasmni yuklab olish
-              </a>
-              {telegram ? (
-                <Tugma variant="ghost" Icon={ExternalLink} onClick={brauzerdaOch} className="flex-1">
-                  Brauzerda ochish
-                </Tugma>
-              ) : null}
+            <div className="space-y-2.5 border-t border-slate-100 p-4 pb-[calc(var(--safe-bottom)+16px)]">
+              <Tugma variant="primary" Icon={Send} onClick={rasmniUlash} className="w-full">
+                Telegramga yuborish
+              </Tugma>
+
+              <div className="flex flex-col gap-2.5 sm:flex-row">
+                <a
+                  href={pngYuklabUrl || pngUrl}
+                  download={`${faylNomi}.png`}
+                  className="no-tap-highlight inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-[14.5px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[.97]"
+                >
+                  <Download className="h-[18px] w-[18px]" />
+                  Rasmni yuklab olish
+                </a>
+                {telegram ? (
+                  <Tugma variant="ghost" Icon={ExternalLink} onClick={brauzerdaOch} className="flex-1">
+                    Brauzerda ochish
+                  </Tugma>
+                ) : null}
+              </div>
+
+              <p className="pt-0.5 text-center text-[11.5px] leading-relaxed text-slate-400">
+                Yuklash bloklansa — rasmni barmoq bilan bosib turing va “Rasmni saqlash”ni tanlang.
+              </p>
             </div>
           </div>
         </div>

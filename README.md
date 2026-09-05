@@ -57,7 +57,29 @@ npm run preview    # build'ni lokal tekshirish
 ```
 
 `dist/` papkasi statik — uni istalgan hostingga (Netlify, Vercel, GitHub Pages,
-Cloudflare Pages, oddiy nginx) qo'yish mumkin.
+Cloudflare Pages, oddiy nginx) qo'yish mumkin. `vite.config.js` da
+`base: './'` turgani uchun sayt ham domen ildizida, ham pastki papkada
+(`/maqsadqoy/`) bir xil ishlaydi.
+
+### 🌐 Internetga chiqarish (GitHub Pages)
+
+Repozitoriyda tayyor workflow bor: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+Uni ishga tushirish uchun **bir marta** sozlash kerak:
+
+1. GitHub'da repozitoriyni oching → **Settings** → **Pages**
+2. **Build and deployment** → **Source**: `GitHub Actions` ni tanlang
+3. Tayyor. Har bir push'dan keyin sayt avtomatik yangilanadi:
+
+```
+https://<foydalanuvchi-nomi>.github.io/maqsadqoy/
+```
+
+Muqobil (eng tez yo'l): `npm run build` dan keyin `dist/` papkasini
+[app.netlify.com/drop](https://app.netlify.com/drop) sahifasiga
+sudrab tashlang — bir necha soniyada tayyor HTTPS manzil beradi.
+
+> ⚠️ Telegram Mini App **faqat HTTPS** manzil bilan ishlaydi —
+> `localhost` yoki `file://` orqali ochilmaydi.
 
 ---
 
@@ -73,18 +95,37 @@ Dastur Telegram'ning ichki brauzerida ishlashga alohida moslashtirilgan:
 - Input'lar 16px shriftda — iOS'da avtomatik zoom bo'lmaydi.
 - `safe-area-inset` hisobga olingan (iPhone «челка» va pastki chiziq).
 
-**Eksport bo'yicha muhim eslatma.** Telegram'ning ichki brauzeri ba'zan
-fayl yuklashni bloklaydi, shuning uchun pasportni saqlashning **4 xil yo'li**
-berilgan:
+### Saqlash va yuborish
+
+Telegram'ning ichki brauzeri ba'zan fayl yuklashni bloklaydi, shuning uchun
+pasportni saqlashning **5 xil yo'li** berilgan:
 
 1. 📥 **PDF yuklab olish** — asosiy yo'l (A4, ko'p sahifali).
-2. 🖼 **Rasm (PNG) sifatida** — rasm oynada ochiladi, uni **bosib turib**
-   galereyaga saqlash mumkin. Telegram'da eng ishonchli usul.
-3. 🖨 **Chop etish** — brauzerning print oynasi (u yerdan ham «Save as PDF»).
-4. 📋 **Matnni nusxalash** — pasportni matn ko'rinishida clipboard'ga oladi,
-   darhol chatga tashlash mumkin.
+   **Agar PDF chiqmasa — dastur avtomatik ravishda rasm tayyorlashga o'tadi.**
+2. 📤 **Telegramga yuborish** — pasportni PNG rasmga aylantiradi va uni
+   to'g'ridan-to'g'ri chatga jo'natish oynasini ochadi.
+3. 🖼 **Rasm sifatida saqlash** — rasm oynada ochiladi: yuklab olish yoki
+   **bosib turib** galereyaga saqlash mumkin. Telegram'da eng ishonchli usul.
+4. 🖨 **Chop etish** — brauzerning print oynasi (u yerdan ham «Save as PDF»).
+5. 📋 **Matnni nusxalash** — pasportni matn ko'rinishida clipboard'ga oladi.
 
-Agar PDF baribir yuklanmasa, PNG oynasidagi **«Brauzerda ochish»** tugmasi
+**«Telegramga yuborish» qanday ishlaydi.** Bosqichma-bosqich zaxira zanjiri
+qurilgan, shuning uchun u har qanday qurilmada natija beradi:
+
+| Navbat | Usul | Natija |
+|---|---|---|
+| 1 | `navigator.share({ files })` | **Rasmning o'zi** Telegramga (yoki boshqa ilovaga) yuboriladi |
+| 2 | `Telegram.WebApp.openTelegramLink` | Telegram ichida chat tanlash oynasi ochiladi |
+| 3 | `t.me/share/url` | Brauzerdan Telegram share sahifasi ochiladi |
+| 4 | Clipboard | Matn nusxalanadi — qo'lda joylash mumkin |
+
+> ⚙️ Rasm oldindan tayyorlanib **keshlanadi**. Buning sababi: Web Share API
+> faylni faqat foydalanuvchining «toza» bosishi paytida qabul qiladi, rasm
+> generatsiyasi esa bir necha soniya oladi. Shuning uchun birinchi bosishda
+> rasm tayyorlanadi va oyna ochiladi, ikkinchi bosishda esa darhol yuboriladi.
+> Ma'lumot tahrirlansa — kesh avtomatik yangilanadi.
+
+Agar PDF baribir yuklanmasa, rasm oynasidagi **«Brauzerda ochish»** tugmasi
 sahifani tizim brauzerida ochadi.
 
 Mini App sifatida ulash uchun **@BotFather** → `/newapp` → hosting URL'ini
