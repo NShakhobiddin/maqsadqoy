@@ -230,20 +230,71 @@ const cx = (...c) => c.filter(Boolean).join(' ')
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-const bugun = () => new Date().toISOString().slice(0, 10)
+const notBosh = (v) => typeof v === 'string' && v.trim().length > 0
 
-const sanaFormat = (iso) => {
-  if (!iso) return '—'
-  const oylar = [
-    'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
-    'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr',
-  ]
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getDate()}-${oylar[d.getMonth()]}, ${d.getFullYear()}`
+/* --------------------------------------------------------------------------
+ *  SANALAR
+ *
+ *  Barcha sanalar "YYYY-MM-DD" ko'rinishida saqlanadi — bu <input type="date">
+ *  ning formati. Ular kalendar sanasi (mahalliy), vaqt nuqtasi emas.
+ *
+ *  Shuning uchun bu yerda Date obyekti ataylab ishlatilmaydi:
+ *    • new Date().toISOString() — UTC beradi. Toshkentda (UTC+5) tunda
+ *      soat 00:00–05:00 orasida u KECHAGI sanani qaytaradi.
+ *    • new Date('2026-05-11') — UTC yarim tuni sifatida o'qiladi, keyin
+ *      getDate() mahalliy vaqtga o'giradi. Manfiy mintaqalarda (masalan
+ *      Amerika) natija bir kun oldinga suriladi: "10-may".
+ * -------------------------------------------------------------------------- */
+
+const OYLAR = [
+  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+  'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr',
+]
+
+/** Sana chegaralari — klaviaturadan kiritilgan xato yilning oldini oladi */
+const ENG_ERTA = '2000-01-01'
+const ENG_KECH = '2100-12-31'
+
+/** Mahalliy kalendar sanasi "YYYY-MM-DD" ko'rinishida */
+const sanaKalit = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+const bugun = () => sanaKalit()
+
+/**
+ * "YYYY-MM-DD" ni qismlarga ajratadi va haqiqiy sana ekanini tekshiradi.
+ * Mavjud bo'lmagan sana (masalan 2026-02-31) uchun null qaytaradi —
+ * Date bo'lsa uni jimgina 3-martga aylantirib yuborardi.
+ */
+const sanaQismlari = (iso) => {
+  if (!notBosh(iso)) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!m) return null
+  const yil = Number(m[1])
+  const oy = Number(m[2])
+  const kun = Number(m[3])
+  if (oy < 1 || oy > 12 || kun < 1) return null
+  // Oydagi oxirgi kun (kabisa yili ham to'g'ri hisoblanadi)
+  const oxirgiKun = new Date(Date.UTC(yil, oy, 0)).getUTCDate()
+  if (kun > oxirgiKun) return null
+  return { yil, oy, kun }
 }
 
-const notBosh = (v) => typeof v === 'string' && v.trim().length > 0
+const sanaFormat = (iso) => {
+  const q = sanaQismlari(iso)
+  if (!q) return notBosh(iso) ? iso : '—'
+  return `${q.kun}-${OYLAR[q.oy - 1]}, ${q.yil}`
+}
+
+/**
+ * Muddat o'tib ketganmi?
+ * "YYYY-MM-DD" satrlarini oddiy solishtirish to'g'ri ishlaydi va
+ * vaqt mintaqasiga bog'liq emas.
+ */
+const muddatOtgan = (iso) => {
+  const q = sanaQismlari(iso)
+  return q ? iso.trim() < bugun() : false
+}
 
 /** His-tuyg'u darajasi uchun emoji va izoh */
 const JIZILLASH = [
@@ -1068,6 +1119,8 @@ function Qadam2({ d, set }) {
 function QadamKarta({ q, ochiq, onToggle, onChange, onKeyingi }) {
   const toliq = notBosh(q.nom) && notBosh(q.straxovkaA)
   const qisman = notBosh(q.nom) && !toliq
+  // Bajarilmagan qadamning muddati o'tib ketgan bo'lsa — ogohlantiramiz
+  const kechikkan = !q.bajarildi && muddatOtgan(q.muddat)
 
   return (
     <div
@@ -1110,9 +1163,15 @@ function QadamKarta({ q, ochiq, onToggle, onChange, onKeyingi }) {
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11.5px] text-slate-400">
             {notBosh(q.muddat) ? (
-              <span className="inline-flex items-center gap-1">
+              <span
+                className={cx(
+                  'inline-flex items-center gap-1',
+                  kechikkan && 'font-semibold text-rose-500'
+                )}
+              >
                 <Calendar className="h-3 w-3" />
                 {sanaFormat(q.muddat)}
+                {kechikkan ? ' · muddat o‘tdi' : ''}
               </span>
             ) : null}
             {notBosh(q.straxovkaA) ? (
@@ -1157,7 +1216,15 @@ function QadamKarta({ q, ochiq, onToggle, onChange, onKeyingi }) {
                 value={q.muddat}
                 onChange={(v) => onChange({ muddat: v })}
                 Icon={Calendar}
+                min={ENG_ERTA}
+                max={ENG_KECH}
               />
+              {kechikkan ? (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11.5px] leading-snug text-rose-600">
+                  <AlertTriangle className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+                  Muddat o‘tib ketgan — sanani yangilang yoki qadamni bajarilgan deb belgilang.
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -1494,6 +1561,8 @@ function Qadam4({ d, set }) {
                     value={k.muddat}
                     onChange={(v) => kpiYangila(k.id, { muddat: v })}
                     Icon={Calendar}
+                    min={ENG_ERTA}
+                    max={ENG_KECH}
                   />
                 </div>
               </div>
@@ -1542,7 +1611,15 @@ function Qadam4({ d, set }) {
           </div>
           <div>
             <label className="mb-1.5 block text-[12px] font-bold text-slate-600">Sana</label>
-            <Kirit type="date" value={d.sana} onChange={(v) => set({ sana: v })} Icon={Calendar} />
+            {/* Qasamyod bugun yoki undan oldin imzolanadi — kelajak sanasi xato */}
+            <Kirit
+              type="date"
+              value={d.sana}
+              onChange={(v) => set({ sana: v })}
+              Icon={Calendar}
+              min={ENG_ERTA}
+              max={bugun()}
+            />
           </div>
         </div>
 
