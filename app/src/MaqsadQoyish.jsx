@@ -35,8 +35,11 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Fingerprint,
+  Flag,
   Flame,
   GraduationCap,
+  Hash,
   Heart,
   Home,
   Image as ImageIcon,
@@ -45,6 +48,7 @@ import {
   Link2,
   ListChecks,
   Loader2,
+  Milestone,
   PenLine,
   Plus,
   Printer,
@@ -53,6 +57,7 @@ import {
   Rocket,
   Ruler,
   Save,
+  ScrollText,
   Send,
   Shield,
   ShieldCheck,
@@ -1655,52 +1660,325 @@ function Qadam4({ d, set }) {
 }
 
 /* ==========================================================================
- *  10. 5-BOSQICH — "Strategik maqsad pasporti" (dashboard)
+ *  10. 5-BOSQICH — "Strategik maqsad pasporti"
+ *
+ *  Dizayn tili: haqiqiy pasport. Muqova (to'q ko'k + oltin gerb), ma'lumot
+ *  sahifasi, mashina o'qiydigan qator (MRZ) va tasdiq muhri. Har bir element
+ *  haqiqiy ma'lumotni kodlaydi — bezak uchun emas:
+ *    • Pasport № — yaratilgan vaqtdan, shuning uchun hech qachon o'zgarmaydi
+ *    • MRZ — soha, yil, qadamlar soni, jizillash va KPI soni
+ *    • Muhr — faqat qasamyod tasdiqlangan bo'lsa bosiladi
  * ========================================================================== */
 
-function PasportBlok({ raqam, sarlavha, Icon, rang, children, onEdit }) {
+/** Pasport raqami — yaratilgan vaqtdan olinadi, shuning uchun barqaror */
+function pasportRaqami(meta) {
+  const d = new Date(meta?.yaratilgan || Date.now())
+  if (Number.isNaN(d.getTime())) return 'MQ-000000-0000'
+  const p2 = (n) => String(n).padStart(2, '0')
+  return `MQ-${String(d.getFullYear()).slice(2)}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(
+    d.getHours()
+  )}${p2(d.getMinutes())}`
+}
+
+/** Eng kech muddat — qadamlar va KPI'lar orasidan ("YYYY-MM-DD" tartiblanadi) */
+function yakuniyMuddat(data) {
+  const sanalar = [
+    ...data.qadam3.qadamlar.map((q) => q.muddat),
+    ...data.qadam4.kpilar.map((k) => k.muddat),
+  ].filter((s) => sanaQismlari(s))
+  return sanalar.length ? sanalar.sort()[sanalar.length - 1] : ''
+}
+
+/** Mashina o'qiydigan qator: faqat A–Z, 0–9; qolgani "<" bilan to'ldiriladi */
+function mrzMatn(s, uzunlik) {
+  const t = String(s || '')
+    .toUpperCase()
+    .replace(/[‘’'`ʻʼ]/g, '')
+    .replace(/[^A-Z0-9<]+/g, '<')
+  return (t + '<'.repeat(uzunlik)).slice(0, uzunlik)
+}
+
+/** Oltin gerb — muqova belgisi */
+function Gerb({ size = 46 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-card">
-      <div className={cx('flex items-center gap-3 bg-gradient-to-r px-5 py-4 text-white', rang)}>
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/20 backdrop-blur">
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-white/70">
-            {raqam}-bosqich
-          </p>
-          <h3 className="text-[15px] font-extrabold leading-snug">{sarlavha}</h3>
+    <span
+      className="grid shrink-0 place-items-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background: 'radial-gradient(circle at 30% 28%, #f6e3a6 0%, #d4a853 52%, #a8792f 100%)',
+        boxShadow: '0 0 0 1px rgba(255,255,255,.14), 0 10px 26px -10px rgba(212,168,83,.8)',
+      }}
+    >
+      <span
+        className="grid place-items-center rounded-full"
+        style={{ width: size - 9, height: size - 9, border: '1.5px solid rgba(30,27,75,.38)' }}
+      >
+        <Target style={{ width: size * 0.46, height: size * 0.46 }} className="text-[#1e1b4b]" strokeWidth={2.3} />
+      </span>
+    </span>
+  )
+}
+
+/** Muqovadagi ma'lumot katagi */
+function MuqovaMaydon({ Icon, label, value, mono }) {
+  return (
+    <div className="min-w-0">
+      <dt className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[.18em] text-[#e8c97a]/85">
+        <Icon className="h-3 w-3" />
+        {label}
+      </dt>
+      <dd className={cx('mt-1 truncate text-[13px] font-semibold text-white', mono && 'font-mono tracking-wide')}>
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+/** Muqova — hujjatning yuzi */
+function PasportMuqova({ data, jz, qadamlar, kpilar, raqam, muddat }) {
+  const d1 = data.qadam1
+  const d4 = data.qadam4
+  const yil = (sanaQismlari(d4.sana) || sanaQismlari(bugun())).yil
+  const mrz1 = mrzMatn(`P<UZB<MAQSAD<<${d1.soha}`, 36)
+  const mrz2 = mrzMatn(
+    `${raqam.replace(/-/g, '')}<${yil}<${qadamlar.length}QADAM<${d1.jizillash}<10<${kpilar.length}KPI`,
+    36
+  )
+
+  return (
+    <section
+      className="relative overflow-hidden rounded-[28px] text-white shadow-card"
+      style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #2e1065 58%, #1e1b4b 100%)' }}
+    >
+      {/* Oltin nur */}
+      <div
+        className="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full opacity-[.28] blur-3xl"
+        style={{ background: 'radial-gradient(closest-side, #d4a853, transparent)' }}
+      />
+      {/* Gilyosh naqshi — pasport qog'ozidagi konsentrik halqalar */}
+      <svg
+        className="pointer-events-none absolute -bottom-24 -left-20 h-80 w-80 opacity-[.07]"
+        viewBox="0 0 200 200"
+        fill="none"
+        stroke="#fff"
+        strokeWidth=".6"
+        aria-hidden="true"
+      >
+        {Array.from({ length: 14 }, (_, i) => (
+          <circle key={i} cx="100" cy="100" r={14 + i * 6.5} />
+        ))}
+      </svg>
+
+      <div className="relative p-5 sm:p-7">
+        <div className="flex items-center gap-3.5">
+          <Gerb />
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-[.26em] text-[#e8c97a]">
+              O‘zbekiston · Ustoz-shogird
+            </p>
+            <p className="mt-1 text-[12.5px] font-bold uppercase tracking-[.14em] text-white/90">
+              Strategik maqsad pasporti
+            </p>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label="Tahrirlash"
-          className="no-tap-highlight inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-white/15 px-3 text-[12px] font-semibold backdrop-blur transition hover:bg-white/25 active:scale-95"
+
+        {/* Maqsad — hujjatning yuragi */}
+        <h2 className="font-display mt-6 text-[24px] font-semibold leading-[1.22] tracking-[-.01em] text-white sm:text-[31px]">
+          {notBosh(d1.maqsad) ? d1.maqsad : 'Maqsad hali yozilmagan'}
+        </h2>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {notBosh(d1.soha) ? (
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[12px] font-semibold">
+              {d1.soha}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[12px] font-semibold">
+            <span className="text-[14px] leading-none">{jz.emoji}</span>
+            {d1.jizillash}/10 · {jz.label}
+          </span>
+        </div>
+
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-white/10 pt-4 sm:grid-cols-4">
+          <MuqovaMaydon Icon={Hash} label="Pasport №" value={raqam} mono />
+          <MuqovaMaydon Icon={Fingerprint} label="Egasi" value={notBosh(d4.imzo) ? d4.imzo : '—'} />
+          <MuqovaMaydon Icon={Calendar} label="Berilgan" value={sanaFormat(d4.sana)} />
+          <MuqovaMaydon Icon={Flag} label="Yakuniy muddat" value={muddat ? sanaFormat(muddat) : '—'} />
+        </dl>
+
+        {/* MRZ — mashina o'qiydigan qator */}
+        <div
+          className="mt-5 overflow-hidden whitespace-nowrap rounded-lg bg-black/25 px-3 py-2 font-mono text-[9.5px] leading-[1.65] tracking-[.13em] text-white/55"
+          aria-hidden="true"
         >
-          <PenLine className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Tahrirlash</span>
-        </button>
+          <div>{mrz1}</div>
+          <div>{mrz2}</div>
+        </div>
       </div>
-      <div className="space-y-4 p-5">{children}</div>
     </section>
   )
 }
 
-function Maydon({ label, children }) {
+/** "Bir qarashda" — to'rtta asosiy raqam */
+function Kartacha({ Icon, rang, qiymat, label, izoh, foiz }) {
   return (
-    <div>
-      <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <div className="text-[14px] leading-relaxed text-slate-800">{children}</div>
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-soft">
+      <span className={cx('grid h-8 w-8 place-items-center rounded-xl', rang)}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <p className="mt-2.5 font-mono text-[21px] font-bold leading-none tracking-tight text-slate-900">{qiymat}</p>
+      <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[.12em] text-slate-400">{label}</p>
+      {typeof foiz === 'number' ? (
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${foiz}%` }} />
+        </div>
+      ) : izoh ? (
+        <p className="mt-1 truncate text-[11.5px] text-slate-500">{izoh}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function BirQarashda({ jz, jizillash, qadamlar, bajarilgan, kpilar, muddat }) {
+  const foiz = qadamlar.length ? Math.round((bajarilgan / qadamlar.length) * 100) : 0
+  return (
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <Kartacha Icon={Flame} rang="bg-orange-50 text-orange-600" qiymat={`${jizillash}/10`} label="Jizillash" izoh={jz.label} />
+      <Kartacha
+        Icon={Milestone}
+        rang="bg-emerald-50 text-emerald-600"
+        qiymat={`${bajarilgan}/${qadamlar.length || QADAMLAR_SONI}`}
+        label="Qadam bajarildi"
+        foiz={foiz}
+      />
+      <Kartacha Icon={Ruler} rang="bg-sky-50 text-sky-600" qiymat={String(kpilar.length)} label="KPI mezoni" izoh="o‘lchanadigan" />
+      <Kartacha
+        Icon={Flag}
+        rang="bg-violet-50 text-violet-600"
+        qiymat={muddat ? String(sanaQismlari(muddat).yil) : '—'}
+        label="Yakuniy muddat"
+        izoh={muddat ? sanaFormat(muddat) : 'belgilanmagan'}
+      />
+    </div>
+  )
+}
+
+/** Pasport bo'limi — ikonka, kichik sarlavha, tahrirlash */
+function Bolim({ Icon, rang, eyebrow, sarlavha, onEdit, children, className }) {
+  return (
+    <section className={cx('rounded-3xl border border-slate-200/80 bg-white shadow-card', className)}>
+      <header className="flex items-center gap-3 px-5 pt-5">
+        <span className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-2xl', rang)}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-400">{eyebrow}</p>
+          <h3 className="text-[16px] font-extrabold leading-snug text-slate-900">{sarlavha}</h3>
+        </div>
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label="Tahrirlash"
+            className="no-tap-highlight grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 active:scale-95"
+          >
+            <PenLine className="h-4 w-4" />
+          </button>
+        ) : null}
+      </header>
+      <div className="px-5 pb-5 pt-4">{children}</div>
+    </section>
+  )
+}
+
+/** Bo'lim ichidagi kichik maydon */
+function Qator({ Icon, label, children }) {
+  return (
+    <div className="flex gap-3">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10.5px] font-bold uppercase tracking-[.14em] text-slate-400">{label}</p>
+        <div className="mt-1 text-[14px] leading-relaxed text-slate-800">{children}</div>
+      </div>
     </div>
   )
 }
 
 const bosh = (v, alt = 'To‘ldirilmagan') =>
-  notBosh(v) ? (
-    <span className="whitespace-pre-wrap">{v}</span>
-  ) : (
-    <span className="italic text-slate-400">{alt}</span>
+  notBosh(v) ? <span className="whitespace-pre-wrap">{v}</span> : <span className="italic text-slate-400">{alt}</span>
+
+/** Tasdiq muhri */
+function Muhr({ sana }) {
+  return (
+    <div
+      aria-label="Tasdiqlangan"
+      className="pointer-events-none shrink-0 origin-center select-none rounded-xl border-[3px] border-[#b91c1c]/80 px-3 py-1.5 text-center text-[#b91c1c] motion-safe:animate-stampIn motion-reduce:rotate-[-9deg]"
+      style={{ boxShadow: 'inset 0 0 0 1.5px rgba(185,28,28,.45)', mixBlendMode: 'multiply' }}
+    >
+      <p className="text-[11.5px] font-black uppercase leading-none tracking-[.22em]">Tasdiqlangan</p>
+      <p className="mt-1 font-mono text-[9px] leading-none tracking-[.16em]">{sana}</p>
+    </div>
   )
+}
+
+/** Yo'l xaritasi — vaqt chizig'i */
+function YolXaritasi({ qadamlar }) {
+  if (qadamlar.length === 0) {
+    return <p className="text-[14px] italic text-slate-400">Hali birorta qadam yozilmagan.</p>
+  }
+  return (
+    <ol className="relative ml-4 border-l-2 border-slate-200 pl-6">
+      {qadamlar.map((q) => {
+        const kechikkan = !q.bajarildi && muddatOtgan(q.muddat)
+        return (
+          <li key={q.id} className="relative pb-5 last:pb-0">
+            <span
+              className={cx(
+                'absolute -left-[41px] top-0 grid h-8 w-8 place-items-center rounded-full border-2 text-[12px] font-extrabold',
+                q.bajarildi
+                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                  : kechikkan
+                    ? 'border-rose-300 bg-white text-rose-600'
+                    : 'border-indigo-200 bg-white text-indigo-700'
+              )}
+            >
+              {q.bajarildi ? <Check className="h-4 w-4" strokeWidth={3} /> : q.raqam}
+            </span>
+            <p className={cx('text-[14.5px] font-bold leading-snug', q.bajarildi ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-900')}>
+              {q.nom}
+            </p>
+            {notBosh(q.muddat) ? (
+              <p className={cx('mt-1 inline-flex items-center gap-1 font-mono text-[11.5px]', kechikkan ? 'font-bold text-rose-500' : 'text-slate-500')}>
+                <Calendar className="h-3 w-3" />
+                {sanaFormat(q.muddat)}
+                {kechikkan ? ' · muddat o‘tdi' : ''}
+              </p>
+            ) : null}
+            {notBosh(q.straxovkaA) || notBosh(q.straxovkaB) ? (
+              <div className="mt-2 space-y-1.5">
+                {notBosh(q.straxovkaA) ? (
+                  <p className="flex gap-2 rounded-lg bg-indigo-50/80 px-2.5 py-2 text-[12.5px] leading-relaxed text-indigo-950">
+                    <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    <span><b className="font-bold">A:</b> {q.straxovkaA}</span>
+                  </p>
+                ) : null}
+                {notBosh(q.straxovkaB) ? (
+                  <p className="flex gap-2 rounded-lg bg-violet-50/80 px-2.5 py-2 text-[12.5px] leading-relaxed text-violet-950">
+                    <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+                    <span><b className="font-bold">B:</b> {q.straxovkaB}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
 
 function Pasport({
   data,
@@ -1720,50 +1998,17 @@ function Pasport({
   const d4 = data.qadam4
   const jz = JIZILLASH[Math.min(Math.max(d1.jizillash, 1), 10) - 1]
   const qadamlar = d3.qadamlar.filter((q) => notBosh(q.nom))
+  const bajarilgan = qadamlar.filter((q) => q.bajarildi).length
   const belgilar = d4.belgilar.filter((b) => notBosh(b.matn))
   const kpilar = d4.kpilar.filter((k) => notBosh(k.nom))
+  const raqam = pasportRaqami(data.meta)
+  const muddat = yakuniyMuddat(data)
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* Bosh sahifa / muqova */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950 p-6 text-white shadow-card sm:p-8">
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
+      <PasportMuqova data={data} jz={jz} qadamlar={qadamlar} kpilar={kpilar} raqam={raqam} muddat={muddat} />
 
-        <div className="relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-indigo-200 ring-1 ring-white/15">
-            <Award className="h-3.5 w-3.5" />
-            Strategik maqsad pasporti
-          </span>
-
-          <h2 className="mt-4 text-[22px] font-extrabold leading-snug tracking-tight sm:text-3xl">
-            {notBosh(d1.maqsad) ? d1.maqsad : 'Maqsad hali yozilmagan'}
-          </h2>
-
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            {notBosh(d1.soha) ? (
-              <span className="rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-semibold ring-1 ring-white/15">
-                {d1.soha}
-              </span>
-            ) : null}
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-semibold ring-1 ring-white/15">
-              <span>{jz.emoji}</span> Jizillash: {d1.jizillash}/10
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-semibold ring-1 ring-white/15">
-              <ShieldCheck className="h-3.5 w-3.5" /> {qadamlar.length} qadam
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[12.5px] font-semibold ring-1 ring-white/15">
-              <Ruler className="h-3.5 w-3.5" /> {kpilar.length} KPI
-            </span>
-          </div>
-
-          {notBosh(d4.imzo) ? (
-            <p className="mt-5 text-[13px] text-indigo-200/80">
-              <span className="font-bold text-white">{d4.imzo}</span> · {sanaFormat(d4.sana)}
-            </p>
-          ) : null}
-        </div>
-      </section>
+      <BirQarashda jz={jz} jizillash={d1.jizillash} qadamlar={qadamlar} bajarilgan={bajarilgan} kpilar={kpilar} muddat={muddat} />
 
       {/* Eksport paneli */}
       <div className="no-print rounded-3xl border border-slate-200/80 bg-white/85 p-4 shadow-card backdrop-blur sm:p-5">
@@ -1797,13 +2042,7 @@ function Pasport({
           <Tugma variant="ghost" Icon={Printer} onClick={onPrint} disabled={!!yuklanmoqda}>
             Chop etish
           </Tugma>
-          <Tugma
-            variant="ghost"
-            Icon={Copy}
-            onClick={onCopy}
-            disabled={!!yuklanmoqda}
-            className="sm:col-span-2"
-          >
+          <Tugma variant="ghost" Icon={Copy} onClick={onCopy} disabled={!!yuklanmoqda} className="sm:col-span-2">
             Matnni nusxalash
           </Tugma>
         </div>
@@ -1828,188 +2067,147 @@ function Pasport({
         </p>
       </div>
 
-      {/* 1-bosqich */}
-      <PasportBlok
-        raqam={1}
-        sarlavha="Yurakni jizillatuvchi maqsad"
-        Icon={Flame}
-        rang="from-orange-500 to-rose-500"
-        onEdit={() => onEdit(1)}
-      >
-        <Maydon label="Soha">{bosh(d1.soha)}</Maydon>
-        <Maydon label="Asosiy maqsad">{bosh(d1.maqsad)}</Maydon>
-        <Maydon label="His-tuyg'u darajasi">
-          <span className="inline-flex items-center gap-2">
-            <span className="text-2xl">{jz.emoji}</span>
-            <span className="font-bold text-slate-900">{d1.jizillash}/10</span>
-            <span className="text-slate-500">— {jz.label}</span>
-          </span>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-orange-500 to-rose-500"
-              style={{ width: `${d1.jizillash * 10}%` }}
-            />
-          </div>
-        </Maydon>
-        <Maydon label="Nima uchun aynan shu maqsad?">{bosh(d1.nega)}</Maydon>
-      </PasportBlok>
-
-      {/* 2-bosqich */}
-      <PasportBlok
-        raqam={2}
-        sarlavha="Qadriyat va manfaat"
-        Icon={Heart}
-        rang="from-rose-500 to-fuchsia-500"
-        onEdit={() => onEdit(2)}
-      >
-        <Maydon label="Qadriyatlar">
-          {d2.qadriyatlar.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {d2.qadriyatlar.map((q) => (
-                <span
-                  key={q}
-                  className="rounded-full bg-rose-50 px-3 py-1.5 text-[12.5px] font-semibold text-rose-700 ring-1 ring-rose-100"
-                >
-                  {q}
-                </span>
-              ))}
+      {/* 1 — Nima uchun */}
+      <Bolim Icon={Flame} rang="bg-orange-50 text-orange-600" eyebrow="1-bosqich · Yurak" sarlavha="Nima uchun aynan shu maqsad?" onEdit={() => onEdit(1)}>
+        <blockquote className="relative rounded-2xl bg-gradient-to-br from-orange-50/90 to-rose-50/50 py-4 pl-10 pr-4">
+          <Quote className="absolute left-3.5 top-3.5 h-4 w-4 text-orange-300" />
+          <p className="font-display text-[17px] leading-[1.6] text-slate-800">
+            {notBosh(d1.nega) ? d1.nega : <span className="italic text-slate-400">To‘ldirilmagan</span>}
+          </p>
+        </blockquote>
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-2xl leading-none">{jz.emoji}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[.12em] text-slate-400">
+              <span>Yurak jizillashi</span>
+              <span className="font-mono text-slate-700">{d1.jizillash}/10</span>
             </div>
-          ) : (
-            bosh('')
-          )}
-        </Maydon>
-        <Maydon label="Boshqalarga manfaati">{bosh(d2.manfaat)}</Maydon>
-        <Maydon label="Tramplin effekti">{bosh(d2.tramplin)}</Maydon>
-      </PasportBlok>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-rose-500" style={{ width: `${d1.jizillash * 10}%` }} />
+            </div>
+          </div>
+        </div>
+      </Bolim>
 
-      {/* 3-bosqich */}
-      <PasportBlok
-        raqam={3}
-        sarlavha="10 ta qadam va straxovka"
-        Icon={ShieldCheck}
-        rang="from-indigo-500 to-violet-500"
+      {/* 2 — Qadriyat va manfaat */}
+      <Bolim Icon={Heart} rang="bg-rose-50 text-rose-600" eyebrow="2-bosqich · Filtr" sarlavha="Qadriyat va manfaat" onEdit={() => onEdit(2)}>
+        <div className="space-y-4">
+          <Qator Icon={Heart} label="Qadriyatlar">
+            {d2.qadriyatlar.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {d2.qadriyatlar.map((q) => (
+                  <span key={q} className="rounded-full bg-rose-50 px-3 py-1 text-[12.5px] font-semibold text-rose-700 ring-1 ring-rose-100">
+                    {q}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              bosh('')
+            )}
+          </Qator>
+          <Qator Icon={Users} label="Kimlar manfaat ko‘radi">{bosh(d2.manfaat)}</Qator>
+          <Qator Icon={Rocket} label="Tramplin — keyingi cho‘qqi">{bosh(d2.tramplin)}</Qator>
+        </div>
+      </Bolim>
+
+      {/* 3 — Yo'l xaritasi */}
+      <Bolim
+        Icon={Milestone}
+        rang="bg-indigo-50 text-indigo-600"
+        eyebrow={`3-bosqich · ${bajarilgan}/${qadamlar.length || QADAMLAR_SONI} bajarildi`}
+        sarlavha="Yo‘l xaritasi va straxovka"
         onEdit={() => onEdit(3)}
       >
-        {qadamlar.length === 0 ? (
-          <p className="text-[14px] italic text-slate-400">Hali birorta qadam yozilmagan.</p>
-        ) : (
-          <ol className="space-y-3">
-            {qadamlar.map((q) => (
-              <li key={q.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3.5">
-                <div className="flex items-start gap-3">
-                  <span
-                    className={cx(
-                      'grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[12px] font-extrabold',
-                      q.bajarildi ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'
-                    )}
-                  >
-                    {q.bajarildi ? <Check className="h-4 w-4" /> : q.raqam}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-bold text-slate-900">{q.nom}</p>
-                    {notBosh(q.muddat) ? (
-                      <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-medium text-slate-500">
-                        <Calendar className="h-3 w-3" />
-                        {sanaFormat(q.muddat)}
+        <YolXaritasi qadamlar={qadamlar} />
+      </Bolim>
+
+      {/* 4 — O'lchov */}
+      <Bolim Icon={Ruler} rang="bg-emerald-50 text-emerald-600" eyebrow="4-bosqich · Dalil" sarlavha="Qanday bilaman — erishildi?" onEdit={() => onEdit(4)}>
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[.14em] text-slate-400">
+              <ListChecks className="h-3.5 w-3.5" /> Ashyoviy belgilar
+            </p>
+            {belgilar.length ? (
+              <ul className="space-y-1.5">
+                {belgilar.map((b) => (
+                  <li key={b.id} className="flex items-start gap-2.5 text-[14px] leading-relaxed text-slate-800">
+                    <span className={cx('mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md', b.done ? 'bg-emerald-500 text-white' : 'border-2 border-slate-300 bg-white text-transparent')}>
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                    <span className={b.done ? 'text-slate-500 line-through decoration-slate-300' : ''}>{b.matn}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              bosh('')
+            )}
+          </div>
+
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[.14em] text-slate-400">
+              <TrendingUp className="h-3.5 w-3.5" /> KPI mezonlari
+            </p>
+            {kpilar.length ? (
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {kpilar.map((k) => (
+                  <div key={k.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3.5">
+                    <p className="text-[12px] font-semibold text-emerald-900/70">{k.nom}</p>
+                    <p className="mt-1 font-mono text-[22px] font-bold leading-none tracking-tight text-emerald-900">
+                      {notBosh(k.qiymat) ? k.qiymat : '—'}
+                      {notBosh(k.birlik) ? <span className="ml-1 text-[13px] font-semibold text-emerald-700/80">{k.birlik}</span> : null}
+                    </p>
+                    {notBosh(k.muddat) ? (
+                      <p className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-emerald-800/70">
+                        <Calendar className="h-3 w-3" /> {sanaFormat(k.muddat)}
                       </p>
                     ) : null}
-                    <div className="mt-2 space-y-1.5">
-                      {notBosh(q.straxovkaA) ? (
-                        <p className="rounded-lg bg-indigo-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-indigo-900">
-                          <span className="font-bold">🛡️ Straxovka A:</span> {q.straxovkaA}
-                        </p>
-                      ) : null}
-                      {notBosh(q.straxovkaB) ? (
-                        <p className="rounded-lg bg-violet-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-violet-900">
-                          <span className="font-bold">🛡️ Straxovka B:</span> {q.straxovkaB}
-                        </p>
-                      ) : null}
-                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </PasportBlok>
-
-      {/* 4-bosqich */}
-      <PasportBlok
-        raqam={4}
-        sarlavha="O‘lchov va aniq parametrlar"
-        Icon={Ruler}
-        rang="from-emerald-500 to-teal-500"
-        onEdit={() => onEdit(4)}
-      >
-        <Maydon label="Erishilganlik belgilari">
-          {belgilar.length ? (
-            <ul className="space-y-1.5">
-              {belgilar.map((b) => (
-                <li key={b.id} className="flex items-start gap-2">
-                  <span
-                    className={cx(
-                      'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md',
-                      b.done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
-                    )}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                  </span>
-                  <span>{b.matn}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            bosh('')
-          )}
-        </Maydon>
-
-        <Maydon label="KPI / Metrikalar">
-          {kpilar.length ? (
-            <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <table className="w-full text-left text-[13px]">
-                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">Metrika</th>
-                    <th className="px-3 py-2 font-bold">Maqsad</th>
-                    <th className="px-3 py-2 font-bold">Muddat</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {kpilar.map((k) => (
-                    <tr key={k.id}>
-                      <td className="px-3 py-2.5 font-semibold text-slate-800">{k.nom}</td>
-                      <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                        {notBosh(k.qiymat) ? `${k.qiymat} ${k.birlik || ''}`.trim() : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">{k.muddat ? sanaFormat(k.muddat) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            bosh('')
-          )}
-        </Maydon>
-
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-            <Award className="h-3.5 w-3.5" /> Qasamyod
-          </p>
-          <p className="whitespace-pre-wrap text-[14px] italic leading-relaxed text-emerald-950">
-            {notBosh(d4.qasamyod) ? `“${d4.qasamyod}”` : 'To‘ldirilmagan'}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-emerald-200 pt-3">
-            <p className="text-[13px] font-bold text-emerald-900">{d4.imzo || '—'}</p>
-            <p className="text-[12.5px] text-emerald-700">{sanaFormat(d4.sana)}</p>
+                ))}
+              </div>
+            ) : (
+              bosh('')
+            )}
           </div>
-          {d4.tasdiq ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-700">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Tasdiqlangan
-            </p>
-          ) : null}
         </div>
-      </PasportBlok>
+      </Bolim>
+
+      {/* Qasamyod — sertifikat */}
+      <section className="relative overflow-hidden rounded-3xl border-2 border-emerald-200/80 bg-white shadow-card">
+        <div className="pointer-events-none absolute inset-2 rounded-[20px] border border-dashed border-emerald-200/80" />
+        <div className="relative p-6 sm:p-8">
+          <div className="flex items-start justify-between gap-3">
+            <p className="flex items-center gap-1.5 pt-1 text-[10px] font-bold uppercase tracking-[.2em] text-emerald-700">
+              <ScrollText className="h-3.5 w-3.5" /> Qasamyod
+            </p>
+            {d4.tasdiq ? <Muhr sana={sanaFormat(d4.sana)} /> : null}
+          </div>
+          <p className="font-display mt-4 text-[18px] italic leading-[1.65] text-slate-800 sm:text-[20px]">
+            {notBosh(d4.qasamyod) ? `“${d4.qasamyod}”` : <span className="not-italic text-slate-400">To‘ldirilmagan</span>}
+          </p>
+          <div className="mt-7 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="font-display text-[21px] font-semibold leading-none text-slate-900">{notBosh(d4.imzo) ? d4.imzo : ' '}</p>
+              <div className="mt-2 h-px w-44 bg-slate-300" />
+              <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-400">Imzo</p>
+            </div>
+            <div className="text-right">
+              <p className="font-mono text-[14px] font-semibold text-slate-800">{sanaFormat(d4.sana)}</p>
+              <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-400">Sana</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={() => onEdit(4)}
+              className="no-tap-highlight inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 transition hover:text-indigo-600"
+            >
+              <PenLine className="h-3.5 w-3.5" /> Tahrirlash
+            </button>
+            <span className="ml-auto font-mono text-[10px] tracking-[.14em] text-slate-300">{raqam}</span>
+          </div>
+        </div>
+      </section>
 
       {/* Pastki amallar */}
       <div className="no-print flex flex-col gap-2.5 pb-2 sm:flex-row">
@@ -2025,9 +2223,18 @@ function Pasport({
 }
 
 /* ==========================================================================
- *  11. PDF / CHOP ETISH SHABLONI (A4, toza hujjat ko'rinishi)
- *  Barcha uslublar inline — html2canvas uchun eng ishonchli yo'l.
+ *  11. PDF / RASM / CHOP ETISH SHABLONI (A4)
+ *  Ekrandagi pasport bilan bir xil dizayn tili. Barcha uslublar inline —
+ *  html2canvas uchun eng ishonchli yo'l (Tailwind sinflari klonlanmaydi).
  * ========================================================================== */
+
+const NAVY = '#1e1b4b'
+const OLTIN = '#d4a853'
+const OLTIN_MATN = '#e8c97a'
+const MUHR = '#b91c1c'
+
+const F_DISPLAY = "Fraunces, Georgia, 'Times New Roman', serif"
+const F_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
 
 const P = {
   sheet: {
@@ -2037,62 +2244,122 @@ const P = {
     background: '#ffffff',
     color: '#0f172a',
     fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif",
-    padding: '38px 44px 46px',
+    padding: '30px 34px 36px',
   },
-  h1: { fontSize: '25px', fontWeight: 800, lineHeight: 1.28, margin: '0 0 10px', color: '#0f172a' },
-  bolimSarlavha: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    background: '#eef2ff',
-    borderLeft: '4px solid #4f46e5',
-    borderRadius: '8px',
-    padding: '9px 12px',
-    margin: '0 0 12px',
-  },
-  bolimRaqam: {
-    display: 'inline-block',
-    minWidth: '22px',
-    height: '22px',
-    lineHeight: '22px',
-    textAlign: 'center',
-    borderRadius: '6px',
-    background: '#4f46e5',
-    color: '#ffffff',
-    fontSize: '12px',
+  eyebrow: {
+    fontSize: '9px',
     fontWeight: 800,
-  },
-  bolimNom: { fontSize: '14px', fontWeight: 800, color: '#1e1b4b', margin: 0 },
-  label: {
-    fontSize: '9.5px',
-    fontWeight: 800,
-    letterSpacing: '.09em',
+    letterSpacing: '.18em',
     textTransform: 'uppercase',
-    color: '#64748b',
-    margin: '0 0 3px',
+    color: '#94a3b8',
+    margin: 0,
   },
-  matn: { fontSize: '12.5px', lineHeight: 1.65, color: '#1e293b', margin: '0 0 14px', whiteSpace: 'pre-wrap' },
-  qadam: {
+  label: {
+    fontSize: '9px',
+    fontWeight: 800,
+    letterSpacing: '.14em',
+    textTransform: 'uppercase',
+    color: '#94a3b8',
+    margin: '0 0 4px',
+  },
+  matn: { fontSize: '12.5px', lineHeight: 1.65, color: '#1e293b', margin: 0, whiteSpace: 'pre-wrap' },
+  bolim: {
     border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '10px 12px',
-    marginBottom: '8px',
-    background: '#f8fafc',
+    borderRadius: '18px',
+    padding: '16px 18px',
+    marginBottom: '14px',
     breakInside: 'avoid',
     pageBreakInside: 'avoid',
+    background: '#ffffff',
   },
-  bolim: { marginBottom: '22px', breakInside: 'avoid', pageBreakInside: 'avoid' },
   teg: {
     display: 'inline-block',
-    background: '#ffffff',
-    border: '1px solid #cbd5e1',
+    background: '#fff1f2',
+    border: '1px solid #fecdd3',
     borderRadius: '999px',
     padding: '3px 10px',
     fontSize: '11px',
     fontWeight: 600,
-    color: '#334155',
+    color: '#be123c',
     margin: '0 5px 5px 0',
   },
+}
+
+/** Bo'lim sarlavhasi: ikonka + eyebrow + nom */
+function PdfBolimSarlavha({ Icon, rang, fon, eyebrow, nom }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+      <span
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '10px',
+          background: fon,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={16} color={rang} strokeWidth={2.2} />
+      </span>
+      <div>
+        <p style={P.eyebrow}>{eyebrow}</p>
+        <p style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', margin: '2px 0 0' }}>{nom}</p>
+      </div>
+    </div>
+  )
+}
+
+function PdfQator({ Icon, label, children, oxirgi }) {
+  return (
+    <div style={{ display: 'flex', gap: '10px', marginBottom: oxirgi ? 0 : '12px' }}>
+      <span
+        style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '7px',
+          background: '#f1f5f9',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          marginTop: '1px',
+        }}
+      >
+        <Icon size={12} color="#64748b" strokeWidth={2.2} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={P.label}>{label}</p>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function PdfKartacha({ Icon, rang, fon, qiymat, label, izoh }) {
+  return (
+    <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '14px', padding: '11px 12px', background: '#fff' }}>
+      <span
+        style={{
+          width: '26px',
+          height: '26px',
+          borderRadius: '8px',
+          background: fon,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon size={13} color={rang} strokeWidth={2.2} />
+      </span>
+      <p style={{ fontFamily: F_MONO, fontSize: '19px', fontWeight: 700, color: '#0f172a', margin: '8px 0 0', lineHeight: 1 }}>
+        {qiymat}
+      </p>
+      <p style={{ ...P.label, margin: '6px 0 0' }}>{label}</p>
+      {izoh ? <p style={{ fontSize: '10.5px', color: '#64748b', margin: '2px 0 0' }}>{izoh}</p> : null}
+    </div>
+  )
 }
 
 function PdfHujjat({ data, innerRef }) {
@@ -2102,282 +2369,399 @@ function PdfHujjat({ data, innerRef }) {
   const d4 = data.qadam4
   const jz = JIZILLASH[Math.min(Math.max(d1.jizillash, 1), 10) - 1]
   const qadamlar = d3.qadamlar.filter((q) => notBosh(q.nom))
+  const bajarilgan = qadamlar.filter((q) => q.bajarildi).length
   const belgilar = d4.belgilar.filter((b) => notBosh(b.matn))
   const kpilar = d4.kpilar.filter((k) => notBosh(k.nom))
+  const raqam = pasportRaqami(data.meta)
+  const muddat = yakuniyMuddat(data)
+  const yil = (sanaQismlari(d4.sana) || sanaQismlari(bugun())).yil
+  const mrz1 = mrzMatn(`P<UZB<MAQSAD<<${d1.soha}`, 44)
+  const mrz2 = mrzMatn(
+    `${raqam.replace(/-/g, '')}<${yil}<${qadamlar.length}QADAM<${d1.jizillash}<10<${kpilar.length}KPI`,
+    44
+  )
+
+  const muqovaMaydon = (Icon, label, value, mono) => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <p style={{ ...P.label, color: OLTIN_MATN, display: 'flex', alignItems: 'center', gap: '4px', margin: '0 0 4px' }}>
+        <Icon size={10} color={OLTIN_MATN} /> {label}
+      </p>
+      <p
+        style={{
+          fontFamily: mono ? F_MONO : undefined,
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#fff',
+          margin: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  )
 
   return (
     <div ref={innerRef} className="pdf-sheet" aria-hidden="true" style={P.sheet}>
-      {/* --- Sarlavha --- */}
-      <div style={{ borderBottom: '3px solid #4f46e5', paddingBottom: '16px', marginBottom: '22px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <p
+      {/* ---------------- MUQOVA ---------------- */}
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: '22px',
+          padding: '24px 26px',
+          color: '#fff',
+          background: `linear-gradient(160deg, ${NAVY} 0%, #2e1065 58%, ${NAVY} 100%)`,
+          marginBottom: '14px',
+          breakInside: 'avoid',
+          pageBreakInside: 'avoid',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            right: '-90px',
+            top: '-110px',
+            width: '300px',
+            height: '300px',
+            borderRadius: '50%',
+            background: `radial-gradient(closest-side, ${OLTIN}, transparent)`,
+            opacity: 0.26,
+          }}
+        />
+        <svg
+          style={{ position: 'absolute', left: '-70px', bottom: '-90px', width: '280px', height: '280px', opacity: 0.07 }}
+          viewBox="0 0 200 200"
+          fill="none"
+          stroke="#fff"
+          strokeWidth=".6"
+        >
+          {Array.from({ length: 14 }, (_, i) => (
+            <circle key={i} cx="100" cy="100" r={14 + i * 6.5} />
+          ))}
+        </svg>
+
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span
               style={{
-                fontSize: '10px',
-                fontWeight: 800,
-                letterSpacing: '.16em',
-                textTransform: 'uppercase',
-                color: '#4f46e5',
-                margin: '0 0 8px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle at 30% 28%, #f6e3a6 0%, #d4a853 52%, #a8792f 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              Strategik maqsad pasporti
-            </p>
-            <h1 style={P.h1}>{notBosh(d1.maqsad) ? d1.maqsad : 'Maqsad kiritilmagan'}</h1>
-            <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
-              {d1.soha || 'Soha belgilanmagan'} · His-tuyg‘u darajasi: {d1.jizillash}/10 ({jz.label})
-            </p>
+              <span
+                style={{
+                  width: '35px',
+                  height: '35px',
+                  borderRadius: '50%',
+                  border: '1.5px solid rgba(30,27,75,.38)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Target size={20} color={NAVY} strokeWidth={2.3} />
+              </span>
+            </span>
+            <div>
+              <p style={{ fontFamily: F_MONO, fontSize: '9.5px', letterSpacing: '.26em', textTransform: 'uppercase', color: OLTIN_MATN, margin: 0 }}>
+                O‘zbekiston · Ustoz-shogird
+              </p>
+              <p style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.9)', margin: '4px 0 0' }}>
+                Strategik maqsad pasporti
+              </p>
+            </div>
           </div>
-          <div
-            style={{
-              textAlign: 'right',
-              fontSize: '10px',
-              color: '#64748b',
-              lineHeight: 1.6,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '11px' }}>Maqsad qo‘yish</div>
-            <div>«Ustoz-shogird» metodikasi</div>
-            <div>{sanaFormat(d4.sana || bugun())}</div>
-          </div>
-        </div>
-      </div>
 
-      {/* --- 1-bosqich --- */}
-      <div style={P.bolim}>
-        <div style={P.bolimSarlavha}>
-          <span style={P.bolimRaqam}>1</span>
-          <p style={P.bolimNom}>Yurakni jizillatuvchi maqsad</p>
-        </div>
-        <p style={P.label}>Soha</p>
-        <p style={P.matn}>{d1.soha || '—'}</p>
-        <p style={P.label}>Asosiy maqsad</p>
-        <p style={P.matn}>{d1.maqsad || '—'}</p>
-        <p style={P.label}>His-tuyg‘u darajasi</p>
-        <div style={{ margin: '0 0 14px' }}>
+          <h1 style={{ fontFamily: F_DISPLAY, fontSize: '27px', fontWeight: 600, lineHeight: 1.22, letterSpacing: '-.01em', margin: '20px 0 0', color: '#fff' }}>
+            {notBosh(d1.maqsad) ? d1.maqsad : 'Maqsad kiritilmagan'}
+          </h1>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '14px' }}>
+            {notBosh(d1.soha) ? (
+              <span style={{ border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.1)', borderRadius: '999px', padding: '3px 10px', fontSize: '11px', fontWeight: 600 }}>
+                {d1.soha}
+              </span>
+            ) : null}
+            <span style={{ border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.1)', borderRadius: '999px', padding: '3px 10px', fontSize: '11px', fontWeight: 600 }}>
+              Jizillash {d1.jizillash}/10 · {jz.label}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: '14px', marginTop: '18px' }}>
+            {muqovaMaydon(Hash, 'Pasport №', raqam, true)}
+            {muqovaMaydon(Fingerprint, 'Egasi', notBosh(d4.imzo) ? d4.imzo : '—')}
+            {muqovaMaydon(Calendar, 'Berilgan', sanaFormat(d4.sana))}
+            {muqovaMaydon(Flag, 'Yakuniy muddat', muddat ? sanaFormat(muddat) : '—')}
+          </div>
+
           <div
             style={{
-              height: '9px',
-              width: '100%',
-              background: '#e2e8f0',
-              borderRadius: '999px',
+              marginTop: '16px',
+              background: 'rgba(0,0,0,.25)',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontFamily: F_MONO,
+              fontSize: '9.5px',
+              lineHeight: 1.65,
+              letterSpacing: '.13em',
+              color: 'rgba(255,255,255,.55)',
+              whiteSpace: 'nowrap',
               overflow: 'hidden',
             }}
           >
-            <div
-              style={{
-                height: '9px',
-                width: `${d1.jizillash * 10}%`,
-                background: 'linear-gradient(90deg,#f97316,#ef4444)',
-                borderRadius: '999px',
-              }}
-            />
+            <div>{mrz1}</div>
+            <div>{mrz2}</div>
           </div>
-          <p style={{ fontSize: '11.5px', color: '#334155', margin: '5px 0 0', fontWeight: 600 }}>
-            {d1.jizillash}/10 — {jz.label}
+        </div>
+      </div>
+
+      {/* ---------------- BIR QARASHDA ---------------- */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+        <PdfKartacha Icon={Flame} rang="#ea580c" fon="#fff7ed" qiymat={`${d1.jizillash}/10`} label="Jizillash" izoh={jz.label} />
+        <PdfKartacha Icon={Milestone} rang="#059669" fon="#ecfdf5" qiymat={`${bajarilgan}/${qadamlar.length || QADAMLAR_SONI}`} label="Qadam bajarildi" izoh="yo‘l xaritasi" />
+        <PdfKartacha Icon={Ruler} rang="#0284c7" fon="#f0f9ff" qiymat={String(kpilar.length)} label="KPI mezoni" izoh="o‘lchanadigan" />
+        <PdfKartacha Icon={Flag} rang="#7c3aed" fon="#f5f3ff" qiymat={muddat ? String(sanaQismlari(muddat).yil) : '—'} label="Yakuniy muddat" izoh={muddat ? sanaFormat(muddat) : 'belgilanmagan'} />
+      </div>
+
+      {/* ---------------- 1. NIMA UCHUN ---------------- */}
+      <div style={P.bolim}>
+        <PdfBolimSarlavha Icon={Flame} rang="#ea580c" fon="#fff7ed" eyebrow="1-bosqich · Yurak" nom="Nima uchun aynan shu maqsad?" />
+        <div style={{ position: 'relative', background: 'linear-gradient(135deg,#fff7ed,#fff1f2)', borderRadius: '14px', padding: '14px 16px 14px 36px' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '12px' }}>
+            <Quote size={14} color="#fdba74" />
+          </span>
+          <p style={{ fontFamily: F_DISPLAY, fontSize: '14.5px', lineHeight: 1.6, color: '#1e293b', margin: 0, whiteSpace: 'pre-wrap' }}>
+            {d1.nega || '—'}
           </p>
         </div>
-        <p style={P.label}>Nima uchun aynan shu maqsad?</p>
-        <p style={{ ...P.matn, marginBottom: 0 }}>{d1.nega || '—'}</p>
-      </div>
-
-      {/* --- 2-bosqich --- */}
-      <div style={P.bolim}>
-        <div style={P.bolimSarlavha}>
-          <span style={P.bolimRaqam}>2</span>
-          <p style={P.bolimNom}>Qadriyat va manfaat</p>
-        </div>
-        <p style={P.label}>Qadriyatlar</p>
-        <div style={{ margin: '0 0 14px' }}>
-          {d2.qadriyatlar.length ? (
-            d2.qadriyatlar.map((q) => (
-              <span key={q} style={P.teg}>
-                {q}
-              </span>
-            ))
-          ) : (
-            <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
-          )}
-        </div>
-        <p style={P.label}>Boshqalarga manfaati</p>
-        <p style={P.matn}>{d2.manfaat || '—'}</p>
-        <p style={P.label}>Tramplin effekti</p>
-        <p style={{ ...P.matn, marginBottom: 0 }}>{d2.tramplin || '—'}</p>
-      </div>
-
-      {/* --- 3-bosqich --- */}
-      <div style={{ ...P.bolim, breakInside: 'auto', pageBreakInside: 'auto' }}>
-        <div style={P.bolimSarlavha}>
-          <span style={P.bolimRaqam}>3</span>
-          <p style={P.bolimNom}>Harakat rejasi: {qadamlar.length} ta qadam va straxovka</p>
-        </div>
-        {qadamlar.length === 0 ? (
-          <p style={P.matn}>—</p>
-        ) : (
-          qadamlar.map((q) => (
-            <div key={q.id} style={P.qadam}>
-              <p style={{ fontSize: '12.5px', fontWeight: 800, color: '#0f172a', margin: '0 0 3px' }}>
-                {q.raqam}. {q.nom}
-                {q.bajarildi ? (
-                  <span style={{ color: '#059669', fontWeight: 700, fontSize: '11px' }}> ✓ bajarildi</span>
-                ) : null}
-              </p>
-              {notBosh(q.muddat) ? (
-                <p style={{ fontSize: '10.5px', color: '#64748b', margin: '0 0 6px', fontWeight: 600 }}>
-                  Muddat: {sanaFormat(q.muddat)}
-                </p>
-              ) : null}
-              {notBosh(q.straxovkaA) ? (
-                <p
-                  style={{
-                    fontSize: '11.5px',
-                    lineHeight: 1.55,
-                    color: '#312e81',
-                    background: '#eef2ff',
-                    borderRadius: '6px',
-                    padding: '6px 9px',
-                    margin: '0 0 5px',
-                  }}
-                >
-                  <b>Straxovka A:</b> {q.straxovkaA}
-                </p>
-              ) : null}
-              {notBosh(q.straxovkaB) ? (
-                <p
-                  style={{
-                    fontSize: '11.5px',
-                    lineHeight: 1.55,
-                    color: '#4c1d95',
-                    background: '#f5f3ff',
-                    borderRadius: '6px',
-                    padding: '6px 9px',
-                    margin: 0,
-                  }}
-                >
-                  <b>Straxovka B:</b> {q.straxovkaB}
-                </p>
-              ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+          <span style={{ fontSize: '18px', lineHeight: 1 }}>{jz.emoji}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', ...P.label, margin: 0 }}>
+              <span>Yurak jizillashi</span>
+              <span style={{ fontFamily: F_MONO, color: '#334155' }}>{d1.jizillash}/10</span>
             </div>
-          ))
+            <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden', marginTop: '5px' }}>
+              <div style={{ height: '6px', width: `${d1.jizillash * 10}%`, background: 'linear-gradient(90deg,#f97316,#ef4444)', borderRadius: '999px' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------- 2. QADRIYAT ---------------- */}
+      <div style={P.bolim}>
+        <PdfBolimSarlavha Icon={Heart} rang="#e11d48" fon="#fff1f2" eyebrow="2-bosqich · Filtr" nom="Qadriyat va manfaat" />
+        <PdfQator Icon={Heart} label="Qadriyatlar">
+          <div>
+            {d2.qadriyatlar.length ? (
+              d2.qadriyatlar.map((q) => (
+                <span key={q} style={P.teg}>
+                  {q}
+                </span>
+              ))
+            ) : (
+              <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
+            )}
+          </div>
+        </PdfQator>
+        <PdfQator Icon={Users} label="Kimlar manfaat ko‘radi">
+          <p style={P.matn}>{d2.manfaat || '—'}</p>
+        </PdfQator>
+        <PdfQator Icon={Rocket} label="Tramplin — keyingi cho‘qqi" oxirgi>
+          <p style={P.matn}>{d2.tramplin || '—'}</p>
+        </PdfQator>
+      </div>
+
+      {/* ---------------- 3. YO'L XARITASI ---------------- */}
+      <div style={{ ...P.bolim, breakInside: 'auto', pageBreakInside: 'auto' }}>
+        <PdfBolimSarlavha
+          Icon={Milestone}
+          rang="#4f46e5"
+          fon="#eef2ff"
+          eyebrow={`3-bosqich · ${bajarilgan}/${qadamlar.length || QADAMLAR_SONI} bajarildi`}
+          nom="Yo‘l xaritasi va straxovka"
+        />
+        {qadamlar.length === 0 ? (
+          <p style={{ ...P.matn, color: '#94a3b8' }}>—</p>
+        ) : (
+          <div style={{ marginLeft: '14px', borderLeft: '2px solid #e2e8f0', paddingLeft: '22px' }}>
+            {qadamlar.map((q, i) => {
+              const kechikkan = !q.bajarildi && muddatOtgan(q.muddat)
+              return (
+                <div key={q.id} style={{ position: 'relative', paddingBottom: i === qadamlar.length - 1 ? 0 : '14px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '-37px',
+                      top: 0,
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '50%',
+                      border: `2px solid ${q.bajarildi ? '#10b981' : kechikkan ? '#fda4af' : '#c7d2fe'}`,
+                      background: q.bajarildi ? '#10b981' : '#fff',
+                      color: q.bajarildi ? '#fff' : kechikkan ? '#e11d48' : '#4338ca',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {q.bajarildi ? <Check size={13} color="#fff" strokeWidth={3} /> : q.raqam}
+                  </span>
+                  <p style={{ fontSize: '12.5px', fontWeight: 700, color: q.bajarildi ? '#64748b' : '#0f172a', margin: 0 }}>
+                    {q.nom}
+                  </p>
+                  {notBosh(q.muddat) ? (
+                    <p style={{ fontFamily: F_MONO, fontSize: '10px', color: kechikkan ? '#e11d48' : '#64748b', margin: '3px 0 0', fontWeight: kechikkan ? 700 : 500 }}>
+                      {sanaFormat(q.muddat)}
+                      {kechikkan ? ' · muddat o‘tdi' : ''}
+                    </p>
+                  ) : null}
+                  {notBosh(q.straxovkaA) ? (
+                    <p style={{ fontSize: '11px', lineHeight: 1.55, color: '#1e1b4b', background: '#eef2ff', borderRadius: '7px', padding: '5px 9px', margin: '6px 0 0' }}>
+                      <b>Straxovka A:</b> {q.straxovkaA}
+                    </p>
+                  ) : null}
+                  {notBosh(q.straxovkaB) ? (
+                    <p style={{ fontSize: '11px', lineHeight: 1.55, color: '#2e1065', background: '#f5f3ff', borderRadius: '7px', padding: '5px 9px', margin: '5px 0 0' }}>
+                      <b>Straxovka B:</b> {q.straxovkaB}
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
-      {/* --- 4-bosqich --- */}
+      {/* ---------------- 4. O'LCHOV ---------------- */}
       <div style={{ ...P.bolim, breakInside: 'auto', pageBreakInside: 'auto' }}>
-        <div style={P.bolimSarlavha}>
-          <span style={P.bolimRaqam}>4</span>
-          <p style={P.bolimNom}>O‘lchov va aniq parametrlar</p>
-        </div>
+        <PdfBolimSarlavha Icon={Ruler} rang="#059669" fon="#ecfdf5" eyebrow="4-bosqich · Dalil" nom="Qanday bilaman — erishildi?" />
 
-        <p style={P.label}>Erishilganlik belgilari</p>
-        <div style={{ margin: '0 0 14px' }}>
+        <p style={{ ...P.label, display: 'flex', alignItems: 'center', gap: '5px', margin: '0 0 8px' }}>
+          <ListChecks size={11} color="#94a3b8" /> Ashyoviy belgilar
+        </p>
+        <div style={{ marginBottom: '14px' }}>
           {belgilar.length ? (
             belgilar.map((b) => (
-              <p
-                key={b.id}
-                style={{ fontSize: '12.5px', lineHeight: 1.6, color: '#1e293b', margin: '0 0 4px' }}
-              >
-                {b.done ? '☑' : '☐'} {b.matn}
-              </p>
+              <div key={b.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '5px' }}>
+                <span
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '4px',
+                    flexShrink: 0,
+                    marginTop: '1px',
+                    background: b.done ? '#10b981' : '#fff',
+                    border: b.done ? 'none' : '2px solid #cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {b.done ? <Check size={11} color="#fff" strokeWidth={3} /> : null}
+                </span>
+                <span style={{ fontSize: '12.5px', lineHeight: 1.5, color: b.done ? '#64748b' : '#1e293b' }}>
+                  {b.matn}
+                </span>
+              </div>
             ))
           ) : (
             <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
           )}
         </div>
 
-        <p style={P.label}>KPI / Metrikalar</p>
-        <div style={{ margin: '0 0 14px' }}>
-          {kpilar.length ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9' }}>
-                  <th style={{ textAlign: 'left', padding: '6px 9px', fontWeight: 800, color: '#475569' }}>
-                    Metrika
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '6px 9px', fontWeight: 800, color: '#475569' }}>
-                    Maqsad qiymati
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '6px 9px', fontWeight: 800, color: '#475569' }}>
-                    Muddat
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {kpilar.map((k) => (
-                  <tr key={k.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '6px 9px', fontWeight: 600, color: '#0f172a' }}>{k.nom}</td>
-                    <td style={{ padding: '6px 9px', color: '#334155' }}>
-                      {notBosh(k.qiymat) ? `${k.qiymat} ${k.birlik || ''}`.trim() : '—'}
-                    </td>
-                    <td style={{ padding: '6px 9px', color: '#334155' }}>
-                      {k.muddat ? sanaFormat(k.muddat) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
-          )}
-        </div>
+        <p style={{ ...P.label, display: 'flex', alignItems: 'center', gap: '5px', margin: '0 0 8px' }}>
+          <TrendingUp size={11} color="#94a3b8" /> KPI mezonlari
+        </p>
+        {kpilar.length ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {kpilar.map((k) => (
+              <div key={k.id} style={{ width: 'calc(50% - 4px)', boxSizing: 'border-box', border: '1px solid #d1fae5', background: '#f0fdf4', borderRadius: '12px', padding: '10px 12px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <p style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(6,78,59,.7)', margin: 0 }}>{k.nom}</p>
+                <p style={{ fontFamily: F_MONO, fontSize: '18px', fontWeight: 700, color: '#064e3b', margin: '4px 0 0', lineHeight: 1 }}>
+                  {notBosh(k.qiymat) ? k.qiymat : '—'}
+                  {notBosh(k.birlik) ? <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(4,120,87,.85)', marginLeft: '4px' }}>{k.birlik}</span> : null}
+                </p>
+                {notBosh(k.muddat) ? (
+                  <p style={{ fontFamily: F_MONO, fontSize: '10px', color: 'rgba(6,95,70,.7)', margin: '6px 0 0' }}>{sanaFormat(k.muddat)}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
+        )}
+      </div>
 
-        <div
-          style={{
-            border: '1px solid #a7f3d0',
-            background: '#ecfdf5',
-            borderRadius: '10px',
-            padding: '12px 14px',
-            breakInside: 'avoid',
-            pageBreakInside: 'avoid',
-          }}
-        >
-          <p style={{ ...P.label, color: '#047857' }}>Qasamyod</p>
-          <p
-            style={{
-              fontSize: '12.5px',
-              lineHeight: 1.7,
-              color: '#064e3b',
-              fontStyle: 'italic',
-              margin: '0 0 10px',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {notBosh(d4.qasamyod) ? `“${d4.qasamyod}”` : '—'}
+      {/* ---------------- QASAMYOD ---------------- */}
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          border: '2px solid #a7f3d0',
+          borderRadius: '18px',
+          padding: '22px 24px',
+          background: '#fff',
+          breakInside: 'avoid',
+          pageBreakInside: 'avoid',
+        }}
+      >
+        <div style={{ position: 'absolute', inset: '7px', borderRadius: '13px', border: '1px dashed #a7f3d0', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <p style={{ ...P.label, color: '#047857', display: 'flex', alignItems: 'center', gap: '5px', letterSpacing: '.2em', paddingTop: '4px' }}>
+            <ScrollText size={11} color="#047857" /> Qasamyod
           </p>
+        {d4.tasdiq ? (
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid #a7f3d0',
-              paddingTop: '9px',
-              fontSize: '11.5px',
-              color: '#065f46',
+              flexShrink: 0,
+              transform: 'rotate(-7deg)',
+              border: `3px solid ${MUHR}`,
+              boxShadow: `inset 0 0 0 1.5px ${MUHR}`,
+              borderRadius: '10px',
+              padding: '6px 11px',
+              color: MUHR,
+              textAlign: 'center',
+              opacity: 0.85,
             }}
           >
-            <span style={{ fontWeight: 800 }}>
-              {d4.imzo || '____________________'} {d4.tasdiq ? '✓' : ''}
-            </span>
-            <span>{sanaFormat(d4.sana)}</span>
+            <p style={{ fontSize: '10.5px', fontWeight: 900, letterSpacing: '.22em', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>Tasdiqlangan</p>
+            <p style={{ fontFamily: F_MONO, fontSize: '8.5px', letterSpacing: '.16em', margin: '4px 0 0', lineHeight: 1 }}>{sanaFormat(d4.sana)}</p>
+          </div>
+        ) : null}
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <p style={{ fontFamily: F_DISPLAY, fontStyle: 'italic', fontSize: '15.5px', lineHeight: 1.65, color: '#1e293b', margin: '12px 0 0', whiteSpace: 'pre-wrap' }}>
+            {notBosh(d4.qasamyod) ? `“${d4.qasamyod}”` : '—'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '22px' }}>
+            <div>
+              <p style={{ fontFamily: F_DISPLAY, fontSize: '18px', fontWeight: 600, color: '#0f172a', margin: 0, lineHeight: 1 }}>{d4.imzo || ' '}</p>
+              <div style={{ height: '1px', width: '170px', background: '#cbd5e1', marginTop: '8px' }} />
+              <p style={{ ...P.label, margin: '5px 0 0' }}>Imzo</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontFamily: F_MONO, fontSize: '12.5px', fontWeight: 600, color: '#1e293b', margin: 0 }}>{sanaFormat(d4.sana)}</p>
+              <p style={{ ...P.label, margin: '5px 0 0' }}>Sana</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* --- Kolontitul --- */}
-      <div
-        style={{
-          borderTop: '1px solid #e2e8f0',
-          paddingTop: '10px',
-          marginTop: '6px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '9.5px',
-          color: '#94a3b8',
-        }}
-      >
+      {/* ---------------- KOLONTITUL ---------------- */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', fontSize: '9px', color: '#94a3b8' }}>
         <span>Maqsad qo‘yish · «Ustoz-shogird» metodologiyasi (Dilshod Mannopov)</span>
-        <span>Yurakni jizillatadigan buyuk maqsadlar sari 4 qadam</span>
+        <span style={{ fontFamily: F_MONO, letterSpacing: '.14em' }}>{raqam}</span>
       </div>
     </div>
   )

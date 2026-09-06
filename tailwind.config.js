@@ -5,6 +5,10 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Pasport hujjati ohangi: maqsad, "nima uchun", qasamyod
+        display: ['Fraunces', 'Georgia', 'Times New Roman', 'serif'],
+        // Pasport raqami, sanalar, MRZ, KPI qiymatlari
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
         card: '0 1px 2px rgba(15,23,42,.04), 0 14px 40px -18px rgba(15,23,42,.22)',
@@ -37,6 +41,12 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(-8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // Tasdiq muhri "bosiladi": kattadan kichikka, ozgina burilib
+        stampIn: {
+          '0%': { opacity: '0', transform: 'rotate(-16deg) scale(1.7)' },
+          '60%': { opacity: '1', transform: 'rotate(-8deg) scale(.96)' },
+          '100%': { opacity: '1', transform: 'rotate(-9deg) scale(1)' },
+        },
       },
       animation: {
         fadeUp: 'fadeUp .45s cubic-bezier(.22,1,.36,1) both',
@@ -45,6 +55,7 @@ export default {
         floaty: 'floaty 5s ease-in-out infinite',
         shimmer: 'shimmer 2.4s linear infinite',
         slideDown: 'slideDown .25s ease both',
+        stampIn: 'stampIn .55s cubic-bezier(.2,.9,.3,1.2) .35s both',
       },
     },
   },
