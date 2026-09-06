@@ -119,6 +119,29 @@ Dastur Telegram'ning ichki brauzerida ishlashga alohida moslashtirilgan:
 - **Safe-area**: Telegram `safeAreaInset` / `contentSafeAreaInset` qiymatlari,
   ular bo'lmasa CSS `env(safe-area-inset-*)` (iPhone «челка» va pastki chiziq).
 
+### 🧭 Navigatsiya: bosh sahifa va «orqaga»
+
+Ilova 6 ta oynadan iborat: **bosh sahifa (0)** → 4 ta qadam (1–4) → **pasport (5)**.
+
+| Qayerdan | Qanday | Qayerga |
+|---|---|---|
+| Istalgan oyna | Header'dagi brend yoki 🏠 tugma | Bosh sahifa |
+| 1-qadam | Pastki paneldagi «Bosh sahifa» | Bosh sahifa |
+| 2–4-qadam | «Orqaga» | Oldingi qadam |
+| Pasport | «Orqaga» / «Bosh sahifa» | 4-qadam / Bosh sahifa |
+| Telegram | Tizim **BackButton** tugmasi | Bosh sahifadan tashqari hamma joyda — bir oyna orqaga |
+| Android / brauzer | Qurilmaning «orqaga» tugmasi | Tarix bo'ylab oldingi oyna (ilova yopilmaydi) |
+
+Har bir o'tish `history.pushState` bilan brauzer tarixiga yoziladi, shuning
+uchun qurilmaning «orqaga» tugmasi ilovani yopish o'rniga oldingi oynaga
+qaytaradi; «oldinga» ham ishlaydi.
+
+**Bosh sahifa** saqlangan maqsad bo'lsa — uning sarlavhasi, umumiy tayyorlik
+foizi, «N-qadamdan davom etish» (birinchi tugallanmagan qadam) va «Pasportni
+ko'rish»ni ko'rsatadi; bo'lmasa — metodika bilan tanishtirib «Boshlash»ni
+taklif qiladi. Ilova qayta ochilganda oxirgi oyna tiklanadi (Telegram
+webview'ni qayta yuklaganda ham).
+
 ### 🧱 Barqarorlik: nega interfeys «qimirlamaydi»
 
 Telegram webview'da sahifalar odatda uch sababdan sakraydi: hujjat darajasidagi

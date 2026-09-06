@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Code2,
+  Compass,
   Copy,
   Download,
   ExternalLink,
@@ -375,7 +376,8 @@ const oqish = () => {
       qadam4: { ...bosh.qadam4, ...(parsed.data?.qadam4 || {}) },
       meta: { ...bosh.meta, ...(parsed.data?.meta || {}) },
     }
-    return { data, bosqich: Number(parsed.bosqich) || 1 }
+    const b = Number(parsed.bosqich)
+    return { data, bosqich: Number.isInteger(b) && b >= 0 && b <= 5 ? b : 1 }
   } catch {
     return null
   }
@@ -629,7 +631,7 @@ function Karta({ children, className }) {
 }
 
 /** Asosiy tugma */
-function Tugma({ children, onClick, variant = 'primary', Icon, disabled, className, type = 'button', spin }) {
+function Tugma({ children, onClick, variant = 'primary', Icon, disabled, className, type = 'button', spin, ...rest }) {
   const uslublar = {
     primary:
       'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-glow hover:from-indigo-500 hover:to-violet-500',
@@ -649,6 +651,7 @@ function Tugma({ children, onClick, variant = 'primary', Icon, disabled, classNa
         disabled && 'cursor-not-allowed opacity-50',
         className
       )}
+      {...rest}
     >
       {Icon ? <Icon className={cx('h-[18px] w-[18px]', spin && 'animate-spin')} /> : null}
       {children}
@@ -774,26 +777,48 @@ function Stepper({ bosqich, foizlar, onSelect, tugallangan }) {
   )
 }
 
-function Header({ umumiyFoiz, saqlanganVaqt }) {
+function Header({ umumiyFoiz, saqlanganVaqt, onHome, boshSahifada, malumotBor = true }) {
   return (
     <header className="relative overflow-hidden">
       <div className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-indigo-300/25 blur-3xl" />
       <div className="absolute -right-20 -top-16 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 animate-floaty place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-glow">
-            <Target className="h-6 w-6" />
-          </span>
-          <div className="min-w-0">
-            <h1 className="text-[19px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-2xl">
-              Maqsad qo‘yish
-            </h1>
-            <p className="mt-0.5 text-[12.5px] leading-snug text-slate-500 sm:text-[13.5px]">
-              Yurakni jizillatadigan buyuk maqsadlar sari <span className="font-semibold text-indigo-600">4 qadam</span>
-            </p>
-          </div>
+        <div className="flex flex-1 items-center gap-3">
+          {/* Brend — bosilsa bosh sahifaga qaytadi */}
+          <button
+            type="button"
+            onClick={onHome}
+            aria-label="Bosh sahifaga qaytish"
+            className="no-tap-highlight flex min-w-0 items-center gap-3 rounded-2xl text-left transition active:scale-[.98]"
+          >
+            <span className="grid h-11 w-11 shrink-0 animate-floaty place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-glow">
+              <Target className="h-6 w-6" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[19px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-2xl">
+                Maqsad qo‘yish
+              </span>
+              <span className="mt-0.5 block text-[12.5px] leading-snug text-slate-500 sm:text-[13.5px]">
+                Yurakni jizillatadigan buyuk maqsadlar sari <span className="font-semibold text-indigo-600">4 qadam</span>
+              </span>
+            </span>
+          </button>
+
+          {!boshSahifada ? (
+            <button
+              type="button"
+              onClick={onHome}
+              aria-label="Bosh sahifa"
+              title="Bosh sahifa"
+              className="no-tap-highlight ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200/80 bg-white/80 text-slate-500 shadow-soft backdrop-blur transition hover:border-indigo-300 hover:text-indigo-600 active:scale-95"
+            >
+              <Home className="h-[18px] w-[18px]" />
+            </button>
+          ) : null}
         </div>
 
+        {/* Hali hech narsa kiritilmagan bo'lsa, "6% · Saqlandi" chalg'itadi — ko'rsatmaymiz */}
+        {malumotBor ? (
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-2.5 shadow-soft backdrop-blur">
           <div className="relative grid h-10 w-10 shrink-0 place-items-center">
             <svg viewBox="0 0 36 36" className="h-10 w-10 -rotate-90">
@@ -828,6 +853,7 @@ function Header({ umumiyFoiz, saqlanganVaqt }) {
             </p>
           </div>
         </div>
+        ) : null}
       </div>
     </header>
   )
@@ -2832,6 +2858,166 @@ async function dataUrlDanFayl(dataUrl, nom) {
 }
 
 /* ==========================================================================
+ *  11.5 BOSH SAHIFA (asosiy oyna)
+ *  Saqlangan maqsad bo'lsa — davom etish / pasport / yangi maqsad.
+ *  Bo'lmasa — metodika bilan tanishtirish va "Boshlash".
+ * ========================================================================== */
+
+/** Foydalanuvchi biror narsa kiritganmi? (boshlang'ich jizillash hisobga olinmaydi) */
+function malumotBormi(data) {
+  const d1 = data.qadam1
+  const d2 = data.qadam2
+  const d4 = data.qadam4
+  return (
+    notBosh(d1.soha) ||
+    notBosh(d1.maqsad) ||
+    notBosh(d1.nega) ||
+    d2.qadriyatlar.length > 0 ||
+    notBosh(d2.manfaat) ||
+    notBosh(d2.tramplin) ||
+    data.qadam3.qadamlar.some((q) => notBosh(q.nom)) ||
+    d4.belgilar.length > 0 ||
+    d4.kpilar.length > 0 ||
+    notBosh(d4.qasamyod) ||
+    notBosh(d4.imzo)
+  )
+}
+
+function BoshSahifa({ data, foizlar, umumiyFoiz, tugallangan, davomBosqich, onDavom, onPasport, onQadam, onYangi }) {
+  const bor = malumotBormi(data)
+  const d1 = data.qadam1
+  const jz = JIZILLASH[Math.min(Math.max(d1.jizillash, 1), 10) - 1]
+  const hammasi = tugallangan.length === 4
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      {bor ? (
+        /* ---- Joriy maqsad kartasi ---- */
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-5 text-white shadow-glow sm:p-7">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative">
+            <p className="text-[10.5px] font-bold uppercase tracking-[.2em] text-white/70">
+              Joriy maqsad · {umumiyFoiz}% tayyor
+            </p>
+            <h2 className="font-display mt-3 text-[22px] font-semibold leading-[1.25] sm:text-[28px]">
+              {notBosh(d1.maqsad) ? d1.maqsad : 'Maqsad hali yozilmagan'}
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {notBosh(d1.soha) ? (
+                <span className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold ring-1 ring-white/20">{d1.soha}</span>
+              ) : null}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold ring-1 ring-white/20">
+                <span className="text-[13px] leading-none">{jz.emoji}</span> {d1.jizillash}/10
+              </span>
+            </div>
+            <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+              <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${umumiyFoiz}%` }} />
+            </div>
+            <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+              <button
+                type="button"
+                onClick={onDavom}
+                className="no-tap-highlight inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-[14.5px] font-bold text-indigo-700 shadow-lg transition active:scale-[.97]"
+              >
+                {hammasi ? <Award className="h-[18px] w-[18px]" /> : <ArrowRight className="h-[18px] w-[18px]" />}
+                {hammasi ? 'Pasportni ochish' : `${davomBosqich}-qadamdan davom etish`}
+              </button>
+              {!hammasi ? (
+                <button
+                  type="button"
+                  onClick={onPasport}
+                  className="no-tap-highlight inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-white/15 px-5 text-[14.5px] font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/20 active:scale-[.97]"
+                >
+                  <Award className="h-[18px] w-[18px]" /> Pasportni ko‘rish
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : (
+        /* ---- Yangi foydalanuvchi uchun kirish ---- */
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950 p-6 text-white shadow-card sm:p-8">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-500/25 blur-3xl" />
+          <div className="relative">
+            <p className="text-[10.5px] font-bold uppercase tracking-[.2em] text-indigo-300">Ustoz-shogird metodologiyasi</p>
+            <h2 className="font-display mt-3 text-[26px] font-semibold leading-[1.2] sm:text-[34px]">
+              Yurakni jizillatadigan maqsadingizni 4 qadamda pasportga aylantiring.
+            </h2>
+            <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-slate-300">
+              Bitta ulkan maqsad → qadriyat filtri → 10 ta qadam va straxovka → o‘lchanadigan dalillar.
+              Yakunda chop etish va ulashish uchun tayyor “Strategik maqsad pasporti”.
+            </p>
+            <button
+              type="button"
+              onClick={() => onQadam(1)}
+              className="no-tap-highlight mt-6 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-500 px-6 text-[15px] font-bold text-white shadow-glow transition active:scale-[.97]"
+            >
+              Boshlash <ArrowRight className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ---- 4 bosqich xaritasi ---- */}
+      <Karta>
+        <BolimSarlavha Icon={Compass} sarlavha="4 bosqichli filtr" izoh="Istalgan bosqichga bosib o‘ting. Har biri saqlanadi — keyin davom ettirish mumkin." />
+        <ol className="space-y-2">
+          {BOSQICHLAR.map((b) => {
+            const foiz = foizlar[b.id - 1]
+            const tugadi = tugallangan.includes(b.id)
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => onQadam(b.id)}
+                  className="no-tap-highlight flex w-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 text-left transition hover:border-indigo-300 hover:shadow-soft active:scale-[.99]"
+                >
+                  <span
+                    className={cx(
+                      'grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white',
+                      tugadi ? 'bg-emerald-500' : `bg-gradient-to-br ${b.rang}`
+                    )}
+                  >
+                    {tugadi ? <Check className="h-5 w-5" strokeWidth={3} /> : <b.Icon className="h-5 w-5" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[.14em] text-slate-400">{b.id}-qadam</span>
+                      {bor ? (
+                        <span className={cx('rounded-full px-2 py-0.5 text-[10.5px] font-bold', tugadi ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>
+                          {foiz}%
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="block text-[14.5px] font-bold leading-snug text-slate-900">{b.nom}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-slate-500">{b.tavsif}</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      </Karta>
+
+      {bor ? (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onYangi}
+            className="no-tap-highlight inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50 active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4" /> Yangi maqsad boshlash
+          </button>
+        </div>
+      ) : null}
+
+      <Iqtibos iqtibos={IQTIBOSLAR[4]} />
+    </div>
+  )
+}
+
+/* ==========================================================================
  *  12. TELEGRAM MINI APP INTEGRATSIYASI
  * ========================================================================== */
 
@@ -2954,7 +3140,7 @@ function useTelegramViewport() {
 export default function MaqsadQoyish() {
   const saqlangan = useMemo(() => oqish(), [])
   const [data, setData] = useState(() => saqlangan?.data || boshMalumot())
-  const [bosqich, setBosqich] = useState(() => saqlangan?.bosqich || 1)
+  const [bosqich, setBosqich] = useState(() => (saqlangan ? saqlangan.bosqich : 0))
   const [xatolar, setXatolar] = useState([])
   const [xabar, setXabar] = useState('')
   const [saqlanganVaqt, setSaqlanganVaqt] = useState('')
@@ -2998,8 +3184,8 @@ export default function MaqsadQoyish() {
   useEffect(() => {
     const tg = tgApp()
     if (!tg?.BackButton) return
-    const orqaga = () => setBosqich((b) => Math.max(1, b - 1))
-    if (bosqich > 1) {
+    const orqaga = () => orqagaRef.current?.()
+    if (bosqich > 0) {
       tg.BackButton.show()
       tg.BackButton.onClick(orqaga)
     } else {
@@ -3098,7 +3284,48 @@ export default function MaqsadQoyish() {
     [data]
   )
 
-  /* ---------- Navigatsiya ---------- */
+  /* ------------------------------------------------------------------
+   *  Navigatsiya
+   *  Bosqichlar: 0 — bosh sahifa, 1–4 — qadamlar, 5 — pasport.
+   *  Har bir o'tish brauzer tarixiga yoziladi: qurilmaning "orqaga"
+   *  tugmasi (Android, brauzer) ilovani yopmasdan oldingi oynaga qaytaradi.
+   * ------------------------------------------------------------------ */
+  const oting = useCallback(
+    (b, { tarix = true } = {}) => {
+      setXatolar([])
+      setBosqich(b)
+      if (tarix) {
+        try {
+          window.history.pushState({ bosqich: b }, '')
+        } catch {
+          /* tarix mavjud bo'lmagan muhit */
+        }
+      }
+      yuqoriga()
+    },
+    [yuqoriga]
+  )
+
+  useEffect(() => {
+    try {
+      window.history.replaceState({ bosqich }, '')
+    } catch {
+      /* noop */
+    }
+    const qaytish = (e) => {
+      const b = e.state?.bosqich
+      if (Number.isInteger(b) && b >= 0 && b <= 5) {
+        setXatolar([])
+        setBosqich(b)
+        yuqoriga()
+      }
+    }
+    window.addEventListener('popstate', qaytish)
+    return () => window.removeEventListener('popstate', qaytish)
+    // faqat bir marta: boshlang'ich holatni belgilash va tinglovchi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const keyingi = () => {
     const x = bosqichniTekshir(data, bosqich)
     if (x.length > 0) {
@@ -3111,31 +3338,26 @@ export default function MaqsadQoyish() {
       }
       return
     }
-    setXatolar([])
     titra()
-    setBosqich((b) => Math.min(5, b + 1))
-    yuqoriga()
+    oting(Math.min(5, bosqich + 1))
   }
 
+  /** Orqaga: pasport → 4-qadam, 1-qadam → bosh sahifa, qolganida bir qadam */
   const orqaga = () => {
-    setXatolar([])
     titra()
-    setBosqich((b) => Math.max(1, b - 1))
-    yuqoriga()
+    oting(Math.max(0, bosqich - 1))
   }
+  const orqagaRef = useRef(orqaga)
+  orqagaRef.current = orqaga
 
-  const bosqichgaOt = (b) => {
-    setXatolar([])
-    setBosqich(b)
-    yuqoriga()
-  }
+  const bosqichgaOt = (b) => oting(b)
+  const boshSahifaga = () => oting(0)
 
   /* ---------- Qayta boshlash ---------- */
   const qaytaBoshla = () => {
     setData(boshMalumot())
-    setBosqich(1)
     setQaytaSoraw(false)
-    setXatolar([])
+    oting(1)
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch {
@@ -3377,8 +3599,10 @@ export default function MaqsadQoyish() {
     }
   }
 
-  const joriy = BOSQICHLAR[Math.min(bosqich, 4) - 1]
+  const joriy = BOSQICHLAR[Math.min(Math.max(bosqich, 1), 4) - 1]
+  const boshSahifada = bosqich === 0
   const pasportda = bosqich === 5
+  const davomBosqich = [1, 2, 3, 4].find((b) => !tugallangan.includes(b)) ?? 5
 
   return (
     <>
@@ -3395,20 +3619,22 @@ export default function MaqsadQoyish() {
       {/* ---- Skroll qilinadigan yagona hudud ---- */}
       <div ref={skrollRef} className="app-scroll thin-scroll relative">
       <div className="mx-auto w-full max-w-3xl px-4 pt-[calc(var(--safe-top)+18px)] sm:px-6 sm:pt-8">
-        <Header umumiyFoiz={umumiyFoiz} saqlanganVaqt={saqlanganVaqt} />
+        <Header umumiyFoiz={umumiyFoiz} saqlanganVaqt={saqlanganVaqt} onHome={boshSahifaga} boshSahifada={boshSahifada} malumotBor={malumotBormi(data)} />
 
-        {/* Stepper */}
-        <div className="no-print mt-5 sm:mt-6">
-          <Stepper
-            bosqich={Math.min(bosqich, 4)}
-            foizlar={foizlar}
-            tugallangan={tugallangan}
-            onSelect={bosqichgaOt}
-          />
-        </div>
+        {/* Stepper — bosh sahifada o'zining 4 bosqich xaritasi bor */}
+        {!boshSahifada ? (
+          <div className="no-print mt-5 sm:mt-6">
+            <Stepper
+              bosqich={Math.min(bosqich, 4)}
+              foizlar={foizlar}
+              tugallangan={tugallangan}
+              onSelect={bosqichgaOt}
+            />
+          </div>
+        ) : null}
 
         {/* Joriy bosqich sarlavhasi */}
-        {!pasportda ? (
+        {!pasportda && !boshSahifada ? (
           <div className="mt-5 flex items-start gap-3 sm:mt-6">
             <span
               className={cx(
@@ -3432,6 +3658,19 @@ export default function MaqsadQoyish() {
 
         {/* Kontent */}
         <main key={bosqich} className="mt-5 animate-fadeUp sm:mt-6">
+          {bosqich === 0 ? (
+            <BoshSahifa
+              data={data}
+              foizlar={foizlar}
+              umumiyFoiz={umumiyFoiz}
+              tugallangan={tugallangan}
+              davomBosqich={davomBosqich}
+              onDavom={() => oting(davomBosqich)}
+              onPasport={() => oting(5)}
+              onQadam={(b) => oting(b)}
+              onYangi={() => setQaytaSoraw(true)}
+            />
+          ) : null}
           {bosqich === 1 ? <Qadam1 d={data.qadam1} set={set1} /> : null}
           {bosqich === 2 ? <Qadam2 d={data.qadam2} set={set2} /> : null}
           {bosqich === 3 ? <Qadam3 d={data.qadam3} set={set3} /> : null}
@@ -3467,20 +3706,37 @@ export default function MaqsadQoyish() {
         flex elementi. Aynan shu tufayli u klaviatura ochilganda yoki
         skroll paytida sakramaydi.
       */}
-      {!pasportda ? (
+      {pasportda ? (
+        <div className="no-print shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur-xl">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-2.5 px-4 pb-[calc(var(--safe-bottom)+12px)] pt-3 sm:px-6">
+            <Tugma variant="ghost" Icon={ArrowLeft} onClick={orqaga} className="!px-4" aria-label="4-qadamga qaytish">
+              <span className="hidden sm:inline">Orqaga</span>
+            </Tugma>
+            <p className="min-w-0 flex-1 truncate text-center text-[11px] font-bold uppercase tracking-[.16em] text-slate-400">
+              Strategik maqsad pasporti
+            </p>
+            <Tugma variant="primary" Icon={Home} onClick={boshSahifaga}>
+              Bosh sahifa
+            </Tugma>
+          </div>
+        </div>
+      ) : null}
+
+      {!pasportda && !boshSahifada ? (
         <div className="no-print shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur-xl">
           {/* Validatsiya ogohlantirishi — tugmalar ustida, siljishlarsiz */}
           <Ogohlantirish xatolar={xatolar} onClose={() => setXatolar([])} />
 
           <div className="mx-auto flex w-full max-w-3xl items-center gap-2.5 px-4 pb-[calc(var(--safe-bottom)+12px)] pt-3 sm:px-6">
+            {/* 1-qadamda "Orqaga" bosh sahifaga olib boradi */}
             <Tugma
               variant="ghost"
-              Icon={ArrowLeft}
+              Icon={bosqich === 1 ? Home : ArrowLeft}
               onClick={orqaga}
-              disabled={bosqich === 1}
               className="!px-4"
+              aria-label={bosqich === 1 ? 'Bosh sahifa' : 'Orqaga'}
             >
-              <span className="hidden sm:inline">Orqaga</span>
+              <span className="hidden sm:inline">{bosqich === 1 ? 'Bosh sahifa' : 'Orqaga'}</span>
             </Tugma>
 
             <div className="min-w-0 flex-1 px-1">
