@@ -2388,6 +2388,58 @@ function PdfKartacha({ Icon, rang, fon, qiymat, label, izoh }) {
   )
 }
 
+/**
+ * Vaqt chizig'i doirasi — to'liq SVG.
+ * html2canvas flex bilan markazlangan matnni pastga-chapga surib chizadi;
+ * SVG'da text-anchor + dy orqali markaz aniq bo'ladi.
+ */
+function PdfDoira({ raqam, bajarilgan, kechikkan, size = 26 }) {
+  const r = size / 2
+  const chiziq = bajarilgan ? '#10b981' : kechikkan ? '#fda4af' : '#c7d2fe'
+  const fon = bajarilgan ? '#10b981' : '#ffffff'
+  const rang = kechikkan ? '#e11d48' : '#4338ca'
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }} aria-hidden="true">
+      <circle cx={r} cy={r} r={r - 1.5} fill={fon} stroke={chiziq} strokeWidth="2" />
+      {bajarilgan ? (
+        <polyline
+          points={`${r - 5},${r + 0.5} ${r - 1.5},${r + 4} ${r + 5.5},${r - 4}`}
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <text
+          x={r}
+          y={r}
+          dy=".36em"
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight="800"
+          fontFamily="Inter, Arial, sans-serif"
+          fill={rang}
+        >
+          {raqam}
+        </text>
+      )}
+    </svg>
+  )
+}
+
+/** Belgilar katakchasi — SVG, xuddi shu sababdan */
+function PdfKatak({ done }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: 'block' }} aria-hidden="true">
+      <rect x="1" y="1" width="14" height="14" rx="3.5" fill={done ? '#10b981' : '#fff'} stroke={done ? '#10b981' : '#cbd5e1'} strokeWidth="2" />
+      {done ? (
+        <polyline points="4.2,8.3 6.9,10.9 11.8,5.4" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      ) : null}
+    </svg>
+  )
+}
+
 function PdfHujjat({ data, innerRef }) {
   const d1 = data.qadam1
   const d2 = data.qadam2
@@ -2622,25 +2674,8 @@ function PdfHujjat({ data, innerRef }) {
               const kechikkan = !q.bajarildi && muddatOtgan(q.muddat)
               return (
                 <div key={q.id} style={{ position: 'relative', paddingBottom: i === qadamlar.length - 1 ? 0 : '14px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                  <span
-                    style={{
-                      position: 'absolute',
-                      left: '-37px',
-                      top: 0,
-                      width: '26px',
-                      height: '26px',
-                      borderRadius: '50%',
-                      border: `2px solid ${q.bajarildi ? '#10b981' : kechikkan ? '#fda4af' : '#c7d2fe'}`,
-                      background: q.bajarildi ? '#10b981' : '#fff',
-                      color: q.bajarildi ? '#fff' : kechikkan ? '#e11d48' : '#4338ca',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                    }}
-                  >
-                    {q.bajarildi ? <Check size={13} color="#fff" strokeWidth={3} /> : q.raqam}
+                  <span style={{ position: 'absolute', left: '-37px', top: 0, width: '26px', height: '26px', display: 'block' }}>
+                    <PdfDoira raqam={q.raqam} bajarilgan={q.bajarildi} kechikkan={kechikkan} />
                   </span>
                   <p style={{ fontSize: '12.5px', fontWeight: 700, color: q.bajarildi ? '#64748b' : '#0f172a', margin: 0 }}>
                     {q.nom}
@@ -2679,21 +2714,8 @@ function PdfHujjat({ data, innerRef }) {
           {belgilar.length ? (
             belgilar.map((b) => (
               <div key={b.id} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '5px' }}>
-                <span
-                  style={{
-                    width: '16px',
-                    height: '16px',
-                    borderRadius: '4px',
-                    flexShrink: 0,
-                    marginTop: '1px',
-                    background: b.done ? '#10b981' : '#fff',
-                    border: b.done ? 'none' : '2px solid #cbd5e1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {b.done ? <Check size={11} color="#fff" strokeWidth={3} /> : null}
+                <span style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '2px', display: 'block' }}>
+                  <PdfKatak done={b.done} />
                 </span>
                 <span style={{ fontSize: '12.5px', lineHeight: 1.5, color: b.done ? '#64748b' : '#1e293b' }}>
                   {b.matn}
