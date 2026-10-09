@@ -167,3 +167,77 @@
     box-shadow: none !important;
   }
 }
+
+/* ==========================================================================
+ *  O'YIN ("Jizillash") — animatsiyalar va fon
+ * ========================================================================== */
+.oyin-osmon {
+  background-color: #0c0a24;
+  background-image:
+    radial-gradient(1.2px 1.2px at 24px 38px, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(1px 1px at 120px 90px, rgba(255, 255, 255, 0.4), transparent 60%),
+    radial-gradient(1.4px 1.4px at 180px 160px, rgba(252, 211, 77, 0.45), transparent 60%),
+    radial-gradient(1px 1px at 70px 190px, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(600px 380px at 85% -10%, rgba(124, 58, 237, 0.35), transparent 70%),
+    radial-gradient(500px 360px at -10% 30%, rgba(79, 70, 229, 0.25), transparent 70%);
+  background-size: 220px 220px, 220px 220px, 220px 220px, 220px 220px, 100% 100%, 100% 100%;
+}
+
+@keyframes konfetti {
+  0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate3d(var(--dx, 0px), 110vh, 0) rotate(var(--rot, 540deg)); opacity: 0; }
+}
+@keyframes silkinish {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(5px); }
+}
+@keyframes yurakUrish {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.16); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.09); }
+}
+/* HUD ostida paydo bo'lib, pastga suzadi — yuraklar va XP ustiga tushmaydi */
+@keyframes xpUchish {
+  0% { opacity: 0; transform: translateY(-6px) scale(0.8); }
+  15% { opacity: 1; transform: translateY(0) scale(1.08); }
+  100% { opacity: 0; transform: translateY(16px) scale(1); }
+}
+@keyframes zarAylanish {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(540deg) scale(1.35); }
+  100% { transform: rotate(1080deg) scale(1); }
+}
+@keyframes kartaOchilish {
+  0% { transform: perspective(900px) rotateY(85deg) scale(0.9); opacity: 0; }
+  100% { transform: perspective(900px) rotateY(0deg) scale(1); opacity: 1; }
+}
+@keyframes sakrash {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-16px); }
+}
+@keyframes porlash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(252, 211, 77, 0.6); }
+  50% { box-shadow: 0 0 0 10px rgba(252, 211, 77, 0); }
+}
+@keyframes tebranish {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-9deg); }
+  75% { transform: rotate(9deg); }
+}
+@keyframes jilo {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oyin-osmon *,
+  .oyin-osmon *::before {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

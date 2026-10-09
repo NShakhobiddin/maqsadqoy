@@ -32,6 +32,31 @@ Qo'shimcha:
 
 ---
 
+## 🎮 O'yin rejimi — «Jizillash»
+
+Anketaning o'sha 4 bosqichi, lekin 5 daqiqalik o'yin tilida. Bosh sahifadagi
+**«O'ynash»** tugmasi orqali ochiladi. Natija anketa bilan **aynan bir xil
+ma'lumot tuzilmasiga** yoziladi — shuning uchun pasport, PDF, rasm va
+Telegramga yuborish o'zgarishsiz ishlaydi, anketada esa hamma narsani
+keyin tahrirlash mumkin.
+
+| Darvoza | Mexanika |
+|---|---|
+| 🔥 **Uchqun** | Soha-olamni tanlash → maqsad gapini kartalardan yig'ish (Nima? Qancha? Qachongacha?) → **×10** tugmasi maqsadni kattalashtiradi → urib turuvchi yurak bilan «yurak testi» (kamida 7) → 1–3 ta sabab |
+| 🛡️ **Qalqon** | Aynan 3 ta qadriyat-qalqon → kim foyda ko'radi (ta'sir doirasi hisoblagichi) → tramplin |
+| 🎲 **Yo'l** | 10 tosh. Har toshda: qadam kartasi → **zar** → **bo'ron** (12 soniyalik taymer) → qalqon A → ixtiyoriy qalqon B. Tez javob ×2 XP, ketma-ket tez javoblar — **kombo**. 2 ta tasodifiy **omad** kartasi (+1 ❤️), 10-toshda **final bo'ron** (10 soniya) |
+| 🏆 **Dalil** | Ashyoviy dalil tokenlari → **jackpot** g'ildiragi maqsad raqamida to'xtaydi (KPI) |
+| 📜 **Qasamyod** | Ism → pergament → tugmani **2.4 soniya bosib turish** → muhr, konfetti, fanfara |
+
+- **Yuraklar:** 3 ta. Taymer tugasa −1 ❤️ (qalqon baribir tanlanadi — straxovkasiz qadam bo'lmaydi). Yuraklar tugasa «Ustoz yordami» 1 ❤️ qaytaradi — o'yinda yutqazish yo'q.
+- **Natija:** yulduzlar (yiqilishlar soniga qarab), unvon (**Shogird → Usta → Ustoz**, XP bo'yicha), statistika va «Natijani do'stlarga yuborish».
+- **Muddatlar** avtomatik: 10 tosh bugundan maqsad yilining 31-dekabrigacha teng taqsimlanadi.
+- **Ovoz** fayllarsiz, WebAudio bilan sintez qilinadi (o'chirish tugmasi bor); Telegram'da **HapticFeedback**, boshqa joyda `navigator.vibrate`.
+- O'yin holati `localStorage`da saqlanadi — Telegram yopilsa ham shu joydan davom etadi.
+- O'yin alohida chunk (`Oyin.jsx`, ~21 KB gzip) — anketa foydalanuvchilari uni yuklamaydi.
+
+---
+
 ## 🛠 Texnologiyalar
 
 - **React 18** — butun ilova bitta komponent faylida: [`app/src/MaqsadQoyish.jsx`](app/src/MaqsadQoyish.jsx)
@@ -213,7 +238,8 @@ kiriting.
 ├── app/                       # ── MANBA KOD ──
 │   ├── index.html             # Telegram SDK, Inter shrifti, meta teglar
 │   └── src/
-│       ├── MaqsadQoyish.jsx   # butun ilova — yagona komponent fayli
+│       ├── MaqsadQoyish.jsx   # anketa, pasport, eksport, navigatsiya
+│       ├── Oyin.jsx           # «Jizillash» o'yin rejimi (lazy chunk)
 │       ├── main.jsx           # React kirish nuqtasi
 │       └── index.css          # Tailwind + slider, print (A4) uslublari
 ├── index.html                 # ── QURILGAN SAYT (build natijasi) ──

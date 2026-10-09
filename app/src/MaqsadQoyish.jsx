@@ -13,6 +13,8 @@
  */
 
 import React, {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
@@ -38,6 +40,7 @@ import {
   ExternalLink,
   Fingerprint,
   Flag,
+  Gamepad2,
   Flame,
   GraduationCap,
   Hash,
@@ -69,6 +72,9 @@ import {
   Users,
   X,
 } from 'lucide-react'
+
+/** O'yin rejimi alohida chunk — anketa foydalanuvchilari uni yuklamaydi */
+const Oyin = lazy(() => import('./Oyin.jsx'))
 
 /* ==========================================================================
  *  1. KONSTANTALAR
@@ -114,7 +120,7 @@ const BOSQICHLAR = [
 ]
 
 /** 1-qadam: soha tanlash chiplari */
-const SOHALAR = [
+export const SOHALAR = [
   { id: 'biznes', nom: 'Biznes & Moliya', Icon: TrendingUp },
   { id: 'karyera', nom: 'Karyera & Ta’lim', Icon: GraduationCap },
   { id: 'it', nom: 'IT & Startap', Icon: Code2 },
@@ -133,7 +139,7 @@ const MAQSAD_NAMUNALAR = [
 ]
 
 /** 2-qadam: qadriyat teglari */
-const QADRIYATLAR = [
+export const QADRIYATLAR = [
   'Halollik',
   'Ozodlik / Erkinlik',
   'Oila farovonligi',
@@ -262,10 +268,10 @@ const ENG_ERTA = '2000-01-01'
 const ENG_KECH = '2100-12-31'
 
 /** Mahalliy kalendar sanasi "YYYY-MM-DD" ko'rinishida */
-const sanaKalit = (d = new Date()) =>
+export const sanaKalit = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-const bugun = () => sanaKalit()
+export const bugun = () => sanaKalit()
 
 /**
  * "YYYY-MM-DD" ni qismlarga ajratadi va haqiqiy sana ekanini tekshiradi.
@@ -286,7 +292,7 @@ const sanaQismlari = (iso) => {
   return { yil, oy, kun }
 }
 
-const sanaFormat = (iso) => {
+export const sanaFormat = (iso) => {
   const q = sanaQismlari(iso)
   if (!q) return notBosh(iso) ? iso : '—'
   return `${q.kun}-${OYLAR[q.oy - 1]}, ${q.yil}`
@@ -303,7 +309,7 @@ const muddatOtgan = (iso) => {
 }
 
 /** His-tuyg'u darajasi uchun emoji va izoh */
-const JIZILLASH = [
+export const JIZILLASH = [
   { emoji: '😐', label: 'Befarq' },
   { emoji: '🙂', label: 'Qiziq' },
   { emoji: '😊', label: 'Yoqimli' },
@@ -377,7 +383,7 @@ const oqish = () => {
       meta: { ...bosh.meta, ...(parsed.data?.meta || {}) },
     }
     const b = Number(parsed.bosqich)
-    return { data, bosqich: Number.isInteger(b) && b >= 0 && b <= 5 ? b : 1 }
+    return { data, bosqich: Number.isInteger(b) && b >= 0 && b <= 6 ? b : 1 }
   } catch {
     return null
   }
@@ -1824,6 +1830,11 @@ function PasportMuqova({ data, jz, qadamlar, kpilar, raqam, muddat }) {
             <span className="text-[14px] leading-none">{jz.emoji}</span>
             {d1.jizillash}/10 · {jz.label}
           </span>
+          {data.meta?.oyin ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/15 px-3 py-1 text-[12px] font-semibold text-amber-100">
+              🎮 {data.meta.oyin.unvon} · {'★'.repeat(data.meta.oyin.yulduz)}
+            </span>
+          ) : null}
         </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-white/10 pt-4 sm:grid-cols-4">
@@ -2570,6 +2581,11 @@ function PdfHujjat({ data, innerRef }) {
             <span style={{ border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.1)', borderRadius: '999px', padding: '3px 10px', fontSize: '11px', fontWeight: 600 }}>
               Jizillash {d1.jizillash}/10 · {jz.label}
             </span>
+            {data.meta?.oyin ? (
+              <span style={{ border: '1px solid rgba(252,211,77,.35)', background: 'rgba(252,211,77,.15)', color: '#fef3c7', borderRadius: '999px', padding: '3px 10px', fontSize: '11px', fontWeight: 600 }}>
+                O‘yin: {data.meta.oyin.unvon} · {'★'.repeat(data.meta.oyin.yulduz)}
+              </span>
+            ) : null}
           </div>
 
           <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: '14px', marginTop: '18px' }}>
@@ -2905,7 +2921,49 @@ function malumotBormi(data) {
   )
 }
 
-function BoshSahifa({ data, foizlar, umumiyFoiz, tugallangan, davomBosqich, onDavom, onPasport, onQadam, onYangi }) {
+/** O'yin o'rtada to'xtatilganmi? (bosh sahifadagi tugma matni uchun) */
+function oyinDavomEtadi() {
+  try {
+    const h = JSON.parse(localStorage.getItem('maqsad-qoyish:oyin:v1') || 'null')
+    return ['g1', 'g2', 'g3', 'g4', 'final'].includes(h?.ekran)
+  } catch {
+    return false
+  }
+}
+
+function OyinKarta({ onOyin }) {
+  const davom = oyinDavomEtadi()
+  return (
+    <button
+      type="button"
+      onClick={onOyin}
+      className="no-tap-highlight oyin-osmon relative block w-full overflow-hidden rounded-3xl p-5 text-left text-white shadow-card ring-1 ring-amber-300/30 transition active:scale-[.99] sm:p-6"
+    >
+      <span className="pointer-events-none absolute -right-5 -top-6 rotate-12 text-[120px] leading-none opacity-20">🎲</span>
+      <span className="relative block">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[.2em] text-amber-200 ring-1 ring-amber-300/30">
+          <Gamepad2 className="h-3.5 w-3.5" /> O‘yin rejimi
+        </span>
+        <span className="font-display mt-3 block text-[30px] font-semibold leading-none">Jizillash</span>
+        <span className="mt-2 block max-w-md text-[13.5px] leading-relaxed text-white/70">
+          5 daqiqada 4 darvozadan o‘ting: maqsad yasang, bo‘ronlarga qalqon tuting, jackpotni yuting — pasportingiz tayyor.
+        </span>
+        <span className="mt-3 flex flex-wrap gap-1.5 text-[11.5px] font-semibold text-white/75">
+          {['🔥 Uchqun', '🛡️ Qalqon', '🎲 Yo‘l', '🏆 Dalil'].map((t) => (
+            <span key={t} className="rounded-full bg-white/[.08] px-2.5 py-1 ring-1 ring-white/10">
+              {t}
+            </span>
+          ))}
+        </span>
+        <span className="mt-4 inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-gradient-to-b from-amber-300 to-orange-500 px-6 text-[15px] font-extrabold text-[#1a1033] shadow-[0_6px_0_#9a3412]">
+          ▶ {davom ? 'O‘yinni davom ettirish' : 'O‘ynash'}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+function BoshSahifa({ data, foizlar, umumiyFoiz, tugallangan, davomBosqich, onDavom, onPasport, onQadam, onYangi, onOyin }) {
   const bor = malumotBormi(data)
   const d1 = data.qadam1
   const jz = JIZILLASH[Math.min(Math.max(d1.jizillash, 1), 10) - 1]
@@ -2913,6 +2971,9 @@ function BoshSahifa({ data, foizlar, umumiyFoiz, tugallangan, davomBosqich, onDa
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      {/* Yangi foydalanuvchi uchun o'yin — birinchi */}
+      {!bor ? <OyinKarta onOyin={onOyin} /> : null}
+
       {bor ? (
         /* ---- Joriy maqsad kartasi ---- */
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-5 text-white shadow-glow sm:p-7">
@@ -2979,6 +3040,8 @@ function BoshSahifa({ data, foizlar, umumiyFoiz, tugallangan, davomBosqich, onDa
           </div>
         </section>
       )}
+
+      {bor ? <OyinKarta onOyin={onOyin} /> : null}
 
       {/* ---- 4 bosqich xaritasi ---- */}
       <Karta>
@@ -3367,7 +3430,7 @@ export default function MaqsadQoyish() {
   /** Orqaga: pasport → 4-qadam, 1-qadam → bosh sahifa, qolganida bir qadam */
   const orqaga = () => {
     titra()
-    oting(Math.max(0, bosqich - 1))
+    oting(bosqich === 6 ? 0 : Math.max(0, bosqich - 1))
   }
   const orqagaRef = useRef(orqaga)
   orqagaRef.current = orqaga
@@ -3624,6 +3687,7 @@ export default function MaqsadQoyish() {
   const joriy = BOSQICHLAR[Math.min(Math.max(bosqich, 1), 4) - 1]
   const boshSahifada = bosqich === 0
   const pasportda = bosqich === 5
+  const oyinda = bosqich === 6
   const davomBosqich = [1, 2, 3, 4].find((b) => !tugallangan.includes(b)) ?? 5
 
   return (
@@ -3640,6 +3704,22 @@ export default function MaqsadQoyish() {
 
       {/* ---- Skroll qilinadigan yagona hudud ---- */}
       <div ref={skrollRef} className="app-scroll thin-scroll relative">
+      {oyinda ? (
+        <Suspense
+          fallback={
+            <div className="oyin-osmon grid min-h-full place-items-center text-white/70">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          }
+        >
+          <Oyin
+            mavjudMaqsad={malumotBormi(data)}
+            onNatija={(yangi) => setData(yangi)}
+            onPasport={() => oting(5)}
+            onExit={boshSahifaga}
+          />
+        </Suspense>
+      ) : (
       <div className="mx-auto w-full max-w-3xl px-4 pt-[calc(var(--safe-top)+18px)] sm:px-6 sm:pt-8">
         <Header umumiyFoiz={umumiyFoiz} saqlanganVaqt={saqlanganVaqt} onHome={boshSahifaga} boshSahifada={boshSahifada} malumotBor={malumotBormi(data)} />
 
@@ -3656,7 +3736,7 @@ export default function MaqsadQoyish() {
         ) : null}
 
         {/* Joriy bosqich sarlavhasi */}
-        {!pasportda && !boshSahifada ? (
+        {!pasportda && !boshSahifada && !oyinda ? (
           <div className="mt-5 flex items-start gap-3 sm:mt-6">
             <span
               className={cx(
@@ -3691,6 +3771,7 @@ export default function MaqsadQoyish() {
               onPasport={() => oting(5)}
               onQadam={(b) => oting(b)}
               onYangi={() => setQaytaSoraw(true)}
+              onOyin={() => oting(6)}
             />
           ) : null}
           {bosqich === 1 ? <Qadam1 d={data.qadam1} set={set1} /> : null}
@@ -3720,6 +3801,7 @@ export default function MaqsadQoyish() {
           </p>
         </footer>
       </div>
+      )}
       </div>
       {/* ---- Skroll hududi tugadi ---- */}
 
@@ -3744,7 +3826,7 @@ export default function MaqsadQoyish() {
         </div>
       ) : null}
 
-      {!pasportda && !boshSahifada ? (
+      {!pasportda && !boshSahifada && !oyinda ? (
         <div className="no-print shrink-0 border-t border-slate-200/80 bg-white/95 backdrop-blur-xl">
           {/* Validatsiya ogohlantirishi — tugmalar ustida, siljishlarsiz */}
           <Ogohlantirish xatolar={xatolar} onClose={() => setXatolar([])} />
